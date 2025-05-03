@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
@@ -136,39 +137,68 @@ def show_recommendations():
     # Implementation timeline
     st.markdown("### Implementation Timeline")
     
-    # Create a sample timeline for implementing recommendations
+    # Create timeline data
     timeline_data = create_recommendation_timeline(recommendations)
     
-    # Display as a Gantt chart
-    # Ensure dates are used as strings to avoid serialization issues
-    fig = px.timeline(
-        timeline_data, 
-        x_start="Start", 
-        x_end="End", 
-        y="Recommendation",
-        color="Priority",
-        color_discrete_map={"High": "red", "Medium": "orange", "Low": "green"},
-        title="Recommended Implementation Timeline"
-    )
+    # Simple table view (always works)
+    show_as_table = st.checkbox("Show as table instead of chart", value=False)
     
-    # Add date formatting to ensure proper display
-    fig.update_xaxes(
-        type='category',  # Treat dates as categories to avoid date parsing issues
-        tickangle=-45     # Angle the dates for better readability
-    )
-    
-    # Update layout for dark theme
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(20,20,20,0.8)',
-        font=dict(color='white'),
-        height=400,
-        margin=dict(l=10, r=10, t=50, b=10),
-        xaxis=dict(title="")
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
+    if show_as_table or timeline_data.empty:
+        # Display as a simple table
+        if not timeline_data.empty:
+            st.write("Recommendation Implementation Timeline:")
+            st.dataframe(timeline_data[["Recommendation", "Start", "End", "Priority"]])
+        else:
+            st.info("No timeline data available.")
+    else:
+        try:
+            # Ensure all date values are strings to avoid JSON serialization issues
+            for col in ["Start", "End"]:
+                if col in timeline_data.columns:
+                    timeline_data[col] = timeline_data[col].astype(str)
+            
+            # Display as a Gantt chart
+            try:
+                fig = px.timeline(
+                    timeline_data, 
+                    x_start="Start", 
+                    x_end="End", 
+                    y="Recommendation",
+                    color="Priority",
+                    color_discrete_map={"High": "red", "Medium": "orange", "Low": "green"},
+                    title="Recommended Implementation Timeline"
+                )
+                
+                # Add date formatting
+                fig.update_xaxes(
+                    type='category',  # Treat dates as categories to avoid date parsing issues
+                    tickangle=-45     # Angle the dates for better readability
+                )
+                
+                # Update layout for dark theme
+                fig.update_layout(
+                    template='plotly_dark',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(20,20,20,0.8)',
+                    font=dict(color='white'),
+                    height=400,
+                    margin=dict(l=10, r=10, t=50, b=10),
+                    xaxis=dict(title="")
+                )
+                
+                # Display the chart
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"Could not create timeline chart (using table view instead): {str(e)}")
+                st.dataframe(timeline_data[["Recommendation", "Start", "End", "Priority"]])
+        except Exception as e:
+            st.error(f"Could not display implementation timeline: {str(e)}")
+            # If all else fails, just show priority info in text form
+            st.write("Priority implementation order:")
+            for priority in ["High", "Medium", "Low"]:
+                recs = [r["title"] for r in recommendations if r.get("title") in timeline_data["Recommendation"].values]
+                if recs:
+                    st.write(f"**{priority} Priority:** {', '.join(recs)}")
     
     # Expected outcomes
     st.markdown("### Expected Outcomes")
@@ -405,40 +435,58 @@ def create_recommendation_timeline(recommendations):
     Returns:
         DataFrame with timeline data
     """
-    # Start date (today)
-    start_date = datetime.now().date()
-    
-    # Create timeline data
-    timeline_data = []
-    
-    for i, rec in enumerate(recommendations):
-        # Assign priority (higher index = lower priority)
-        if i < len(recommendations) / 3:
-            priority = "High"
-            duration = 30  # 30 days for high priority
-        elif i < len(recommendations) * 2 / 3:
-            priority = "Medium"
-            duration = 60  # 60 days for medium priority
-        else:
-            priority = "Low"
-            duration = 90  # 90 days for low priority
+    try:
+        # Start date (today)
+        start_date = datetime.now().date()
         
-        # Calculate start and end dates
-        # Stagger start dates to avoid everything starting at once
-        rec_start = start_date + timedelta(days=i * 15)
-        rec_end = rec_start + timedelta(days=duration)
+        # Create timeline data
+        timeline_data = []
         
-        # Convert dates to strings in ISO format for plotly to avoid JSON serialization issues
-        rec_start_str = rec_start.strftime('%Y-%m-%d')
-        rec_end_str = rec_end.strftime('%Y-%m-%d')
+        for i, rec in enumerate(recommendations):
+            try:
+                # Assign priority (higher index = lower priority)
+                if i < len(recommendations) / 3:
+                    priority = "High"
+                    duration = 30  # 30 days for high priority
+                elif i < len(recommendations) * 2 / 3:
+                    priority = "Medium"
+                    duration = 60  # 60 days for medium priority
+                else:
+                    priority = "Low"
+                    duration = 90  # 90 days for low priority
+                
+                # Calculate start and end dates
+                # Stagger start dates to avoid everything starting at once
+                rec_start = start_date + timedelta(days=i * 15)
+                rec_end = rec_start + timedelta(days=duration)
+                
+                # Convert dates to strings to avoid JSON serialization issues
+                # Use simple string format that works across all systems
+                rec_start_str = rec_start.strftime('%Y-%m-%d')
+                rec_end_str = rec_end.strftime('%Y-%m-%d')
+                
+                timeline_data.append({
+                    "Recommendation": rec['title'],
+                    "Start": rec_start_str,  # String format
+                    "End": rec_end_str,      # String format
+                    "Priority": priority
+                })
+            except Exception as e:
+                # Skip this recommendation if there's an error
+                print(f"Error processing recommendation {i}: {str(e)}")
+                continue
         
-        timeline_data.append({
-            "Recommendation": rec['title'],
-            "Start": rec_start_str,
-            "End": rec_end_str,
-            "Priority": priority
-        })
-    
-    # Use dates as strings in the DataFrame to avoid serialization issues with plotly
-    df = pd.DataFrame(timeline_data)
-    return df
+        # Create DataFrame and ensure all date columns are strings
+        df = pd.DataFrame(timeline_data)
+        
+        # Extra protection - convert any remaining date objects to strings
+        if not df.empty:
+            for col in ["Start", "End"]:
+                if col in df.columns:
+                    df[col] = df[col].astype(str)
+        
+        return df
+    except Exception as e:
+        # Return empty DataFrame if there's a critical error
+        print(f"Error creating timeline: {str(e)}")
+        return pd.DataFrame(columns=["Recommendation", "Start", "End", "Priority"])
