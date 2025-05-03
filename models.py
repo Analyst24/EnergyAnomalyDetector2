@@ -12,15 +12,25 @@ import pickle
 import os
 from pathlib import Path
 
-# No TensorFlow imports for 100% offline compatibility
+# TensorFlow imports are conditionally loaded to prevent startup issues
 tensorflow_available = False
-# Create placeholder variables to prevent namespace errors
-tf = None
-Sequential = None
-Dense = None
-Input = None
-Model = None
-EarlyStopping = None
+try:
+    # Use an offline approach with lazy importing
+    # This will only attempt to import if the modules are already installed locally
+    import tensorflow as tf
+    from tensorflow.keras.models import Model, Sequential
+    from tensorflow.keras.layers import Dense, Input
+    from tensorflow.keras.callbacks import EarlyStopping
+    tensorflow_available = True
+except (ImportError, TypeError) as e:
+    st.warning("TensorFlow not available in offline mode. Using alternative models.")
+    # Create placeholder variables to prevent namespace errors
+    tf = None
+    Sequential = None
+    Dense = None
+    Input = None
+    Model = None
+    EarlyStopping = None
 
 def isolation_forest_model(data, contamination=0.05):
     """
@@ -69,24 +79,102 @@ def isolation_forest_model(data, contamination=0.05):
 
 def autoencoder_model(data, epochs=50, batch_size=32, contamination=0.05):
     """
-    This function is a placeholder for Autoencoder model for anomaly detection.
-    In offline mode, it falls back to Isolation Forest.
+    Trains an Autoencoder model for anomaly detection.
     
     Args:
         data: DataFrame containing features
-        epochs: Number of training epochs (not used in offline mode)
-        batch_size: Training batch size (not used in offline mode)
+        epochs: Number of training epochs
+        batch_size: Training batch size
         contamination: The expected proportion of anomalies
     
     Returns:
-        Dictionary with model, anomalies, and scores from Isolation Forest
+        Dictionary with model, anomalies, and scores
     """
-    # In offline mode, always fall back to Isolation Forest
-    st.info("For 100% offline compatibility, Autoencoder is not available.")
-    st.info("Using Isolation Forest for anomaly detection instead.")
+    # Check if TensorFlow is available
+    if not tensorflow_available:
+        st.warning("TensorFlow is not available in offline mode.")
+        st.info("Falling back to Isolation Forest for anomaly detection.")
+        # Fall back to Isolation Forest
+        return isolation_forest_model(data, contamination=contamination)
+        
+    st.info("Training Autoencoder model...")
+    start_time = time.time()
     
-    # Fall back to Isolation Forest
-    return isolation_forest_model(data, contamination=contamination)
+    # Prepare the data
+    scaler = MinMaxScaler()
+    X_scaled = scaler.fit_transform(data)
+    
+    # Get feature dimension
+    input_dim = X_scaled.shape[1]
+    
+    try:
+        # Create the autoencoder model
+        input_layer = Input(shape=(input_dim,))
+        
+        # Encoder
+        encoded = Dense(int(input_dim * 0.75), activation='relu')(input_layer)
+        encoded = Dense(int(input_dim * 0.5), activation='relu')(encoded)
+        encoded = Dense(int(input_dim * 0.33), activation='relu')(encoded)
+        
+        # Bottleneck
+        bottleneck = Dense(int(input_dim * 0.25), activation='relu')(encoded)
+        
+        # Decoder
+        decoded = Dense(int(input_dim * 0.33), activation='relu')(bottleneck)
+        decoded = Dense(int(input_dim * 0.5), activation='relu')(decoded)
+        decoded = Dense(int(input_dim * 0.75), activation='relu')(decoded)
+        
+        # Output layer
+        output_layer = Dense(input_dim, activation='sigmoid')(decoded)
+        
+        # Create and compile the model
+        autoencoder = Model(inputs=input_layer, outputs=output_layer)
+        autoencoder.compile(optimizer='adam', loss='mean_squared_error')
+        
+        # Train the model
+        early_stopping = EarlyStopping(monitor='loss', patience=5, restore_best_weights=True)
+        
+        history = autoencoder.fit(
+            X_scaled, X_scaled,
+            epochs=epochs,
+            batch_size=batch_size,
+            shuffle=True,
+            verbose=0,
+            callbacks=[early_stopping]
+        )
+        
+        # Get reconstruction error
+        reconstructions = autoencoder.predict(X_scaled)
+        reconstruction_errors = np.mean(np.square(X_scaled - reconstructions), axis=1)
+        
+        # Determine threshold based on contamination parameter
+        threshold = np.percentile(reconstruction_errors, 100 * (1 - contamination))
+        
+        # Find anomalies
+        predictions = (reconstruction_errors > threshold).astype(int)
+        anomalies = np.where(predictions == 1)[0]
+        
+        # Normalize scores to be consistent with isolation forest (higher = more normal)
+        max_error = max(reconstruction_errors)
+        scores = 1 - (reconstruction_errors / max_error)
+        
+        training_time = time.time() - start_time
+        
+        return {
+            "model": autoencoder,
+            "scaler": scaler,
+            "anomalies": anomalies,
+            "scores": scores,
+            "training_time": training_time,
+            "reconstruction_errors": reconstruction_errors,
+            "threshold": threshold,
+            "predictions": predictions
+        }
+    except Exception as e:
+        st.error(f"Error training Autoencoder model: {str(e)}")
+        st.info("Falling back to Isolation Forest for anomaly detection.")
+        # Fall back to Isolation Forest
+        return isolation_forest_model(data, contamination=contamination)
 
 def kmeans_model(data, n_clusters=2, contamination=0.05):
     """
