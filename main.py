@@ -124,6 +124,9 @@ def start_streamlit():
     env['BROWSER_GATHER_USAGE_STATS'] = "0"
     
     try:
+        # Set environment variable to indicate we're running from main.py
+        env['LAUNCHED_FROM_MAIN'] = 'true'
+        
         streamlit_process = subprocess.Popen(
             streamlit_command,
             stdout=subprocess.PIPE,
@@ -178,6 +181,7 @@ def start_flask():
         env['FLASK_APP'] = 'app_flask.py'
         env['STREAMLIT_PORT'] = str(STREAMLIT_PORT)
         env['FLASK_PORT'] = str(FLASK_PORT)
+        env['LAUNCHED_FROM_MAIN'] = 'true'
         
         flask_command = [
             sys.executable, "-m", "flask", "run",
