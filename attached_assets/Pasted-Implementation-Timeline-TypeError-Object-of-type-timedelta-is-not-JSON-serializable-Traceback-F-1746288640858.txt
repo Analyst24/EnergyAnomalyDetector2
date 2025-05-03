@@ -1,0 +1,36 @@
+Implementation Timeline
+TypeError: Object of type timedelta is not JSON serializable
+Traceback:
+File "C:\Users\Opulent\Desktop\Project\Working Projects\EnergyAnomalyDetector2-main  Best\app.py", line 220, in <module>
+    show_recommendations()
+File "C:\Users\Opulent\Desktop\Project\Working Projects\EnergyAnomalyDetector2-main  Best\pages\recommendations.py", line 164, in show_recommendations
+    st.plotly_chart(fig, use_container_width=True)
+File "C:\Users\Opulent\anaconda3\Lib\site-packages\streamlit\runtime\metrics_util.py", line 410, in wrapped_func
+    result = non_optional_func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "C:\Users\Opulent\anaconda3\Lib\site-packages\streamlit\elements\plotly_chart.py", line 501, in plotly_chart
+    plotly_chart_proto.spec = plotly.io.to_json(figure, validate=False)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "C:\Users\Opulent\anaconda3\Lib\site-packages\plotly\io\_json.py", line 199, in to_json
+    return to_json_plotly(fig_dict, pretty=pretty, engine=engine)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "C:\Users\Opulent\anaconda3\Lib\site-packages\plotly\io\_json.py", line 123, in to_json_plotly
+    return json.dumps(plotly_object, cls=PlotlyJSONEncoder, **opts)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "C:\Users\Opulent\anaconda3\Lib\json\__init__.py", line 238, in dumps
+    **kw).encode(obj)
+          ^^^^^^^^^^^
+File "C:\Users\Opulent\anaconda3\Lib\site-packages\_plotly_utils\utils.py", line 59, in encode
+    encoded_o = super(PlotlyJSONEncoder, self).encode(o)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "C:\Users\Opulent\anaconda3\Lib\json\encoder.py", line 200, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "C:\Users\Opulent\anaconda3\Lib\json\encoder.py", line 258, in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+File "C:\Users\Opulent\anaconda3\Lib\site-packages\_plotly_utils\utils.py", line 136, in default
+    return _json.JSONEncoder.default(self, obj)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "C:\Users\Opulent\anaconda3\Lib\json\encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '

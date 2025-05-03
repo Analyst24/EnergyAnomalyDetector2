@@ -399,7 +399,7 @@ def create_recommendation_timeline(recommendations):
         DataFrame with timeline data
     """
     # Start date (today)
-    start_date = datetime.now()
+    start_date = datetime.now().date()
     
     # Create timeline data
     timeline_data = []
@@ -418,13 +418,18 @@ def create_recommendation_timeline(recommendations):
         
         # Calculate start and end dates
         # Stagger start dates to avoid everything starting at once
+        # Convert to string to avoid timedelta serialization issues
         rec_start = start_date + timedelta(days=i * 15)
         rec_end = rec_start + timedelta(days=duration)
         
+        # Convert dates to strings in ISO format for plotly
+        rec_start_str = rec_start.isoformat()
+        rec_end_str = rec_end.isoformat()
+        
         timeline_data.append({
             "Recommendation": rec['title'],
-            "Start": rec_start,
-            "End": rec_end,
+            "Start": rec_start_str,
+            "End": rec_end_str,
             "Priority": priority
         })
     
