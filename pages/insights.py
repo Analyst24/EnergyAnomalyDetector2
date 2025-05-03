@@ -54,9 +54,11 @@ def show_insights():
                     metrics = results['metrics']
                     
                     # Create gauge charts for key metrics
-                    create_gauge_chart(metrics.get('accuracy', 0), "Accuracy", "blue")
-                    create_gauge_chart(metrics.get('precision', 0), "Precision", "green")
-                    create_gauge_chart(metrics.get('recall', 0), "Recall", "purple")
+                    create_gauge_chart(metrics.get('accuracy', 0), "Accuracy", "blue", f"{model_name}_accuracy")
+                    create_gauge_chart(metrics.get('precision', 0), "Precision", "green", f"{model_name}_precision")
+                    create_gauge_chart(metrics.get('recall', 0), "Recall", "purple", f"{model_name}_recall")
+                    create_gauge_chart(metrics.get('f1_score', 0), "F1 Score", "orange", f"{model_name}_f1_score")
+                    create_gauge_chart(metrics.get('auc', 0), "AUC", "red", f"{model_name}_auc")
             
             # Show model specific visualizations
             st.markdown("#### Model-Specific Analysis")
@@ -187,7 +189,7 @@ def show_insights():
     5. **Validation**: Manually validate a sample of detected anomalies to ensure accuracy
     """)
 
-def create_gauge_chart(value, title, color):
+def create_gauge_chart(value, title, color, unique_id=None):
     """
     Create a gauge chart for displaying metrics.
     
@@ -195,6 +197,7 @@ def create_gauge_chart(value, title, color):
         value: Metric value (0-1)
         title: Chart title
         color: Chart color
+        unique_id: Optional unique identifier for the chart
     """
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
@@ -223,7 +226,8 @@ def create_gauge_chart(value, title, color):
         margin=dict(l=10, r=10, t=50, b=10)
     )
     
-    st.plotly_chart(fig, use_container_width=True, key=f"gauge_chart_{title.lower().replace(' ', '_')}")
+    chart_key = unique_id if unique_id else f"gauge_chart_{title.lower().replace(' ', '_')}"
+    st.plotly_chart(fig, use_container_width=True, key=chart_key)
 
 def show_isolation_forest_insights(results):
     """

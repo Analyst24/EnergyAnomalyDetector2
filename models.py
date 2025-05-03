@@ -5,7 +5,7 @@ import seaborn as sns
 from sklearn.ensemble import IsolationForest
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from sklearn.metrics import confusion_matrix, precision_score, recall_score, accuracy_score
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, accuracy_score, f1_score, roc_auc_score
 import time
 import streamlit as st
 import pickle
@@ -282,6 +282,25 @@ def evaluate_model_with_synthetic_labels(data, anomalies, original_data=None):
         accuracy = accuracy_score(synthetic_labels, predictions)
         precision = precision_score(synthetic_labels, predictions, zero_division=0)
         recall = recall_score(synthetic_labels, predictions, zero_division=0)
+        f1 = f1_score(synthetic_labels, predictions, zero_division=0)
+        
+        # AUC - For this we need to have a score/probability rather than binary prediction
+        # We'll try to use the anomaly scores as probabilities
+        try:
+            if 'scores' in model_results:
+                # For Isolation Forest (invert scores since lower values are more anomalous)
+                scores_for_auc = 1 - model_results['scores']
+                auc_value = roc_auc_score(synthetic_labels, scores_for_auc)
+            elif 'reconstruction_errors' in model_results:
+                # For Autoencoder
+                auc_value = roc_auc_score(synthetic_labels, model_results['reconstruction_errors'])
+            elif 'distances' in model_results:
+                # For K-Means
+                auc_value = roc_auc_score(synthetic_labels, model_results['distances'])
+            else:
+                auc_value = 0.5  # Fallback value
+        except Exception:
+            auc_value = 0.5  # Fallback value if there's an error
         
         # Confusion matrix
         cm = confusion_matrix(synthetic_labels, predictions)
@@ -300,6 +319,8 @@ def evaluate_model_with_synthetic_labels(data, anomalies, original_data=None):
             "accuracy": accuracy,
             "precision": precision,
             "recall": recall,
+            "f1_score": f1,
+            "auc": auc_value,
             "confusion_matrix": cm,
             "true_negatives": tn,
             "false_positives": fp,
