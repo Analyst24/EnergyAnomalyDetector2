@@ -21,7 +21,7 @@ st.set_page_config(
     page_title="Energy Anomaly Detection System",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
     menu_items=None
 )
 
@@ -128,33 +128,80 @@ if not st.session_state.authenticated:
 
 else:
     # Main application interface for authenticated users
-    # Sidebar navigation
-    with st.sidebar:
-        st.image(get_icon("bolt"), width=50)
-        st.title(f"Welcome, {st.session_state.username}")
-        
-        # Ordered dictionary to ensure sidebar menu appears in the specified order
-        menu_options = {
-            "app": {"label": "App", "icon": "bolt"},
-            "home": {"label": "Home", "icon": "home"},
-            "dashboard": {"label": "Dashboard", "icon": "bar-chart-2"},
-            "upload": {"label": "Upload Data", "icon": "upload"},
-            "detection": {"label": "Run Detection", "icon": "search"},
-            "results": {"label": "Results", "icon": "activity"},
-            "insights": {"label": "Model Insights", "icon": "pie-chart"},
-            "recommendations": {"label": "Recommendations", "icon": "award"},
-            "settings": {"label": "Settings", "icon": "settings"}
+    # Top navigation bar
+    st.markdown("""
+    <style>
+    .nav-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 5px;
+        background-color: #1E293B;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    .logo-section {
+        display: flex;
+        align-items: center;
+    }
+    .nav-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    .nav-user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    @media (max-width: 1200px) {
+        .nav-items {
+            justify-content: center;
         }
-        
-        for page_id, page_info in menu_options.items():
-            col1, col2 = st.columns([1, 4])
-            with col1:
-                st.image(get_icon(page_info["icon"]), width=25)
-            with col2:
-                if st.button(page_info["label"], key=f"nav_{page_id}"):
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Create navigation elements
+    col1, col2, col3 = st.columns([1, 6, 1])
+    
+    with col1:
+        st.markdown(f"""
+        <div class="logo-section">
+            {get_icon("bolt")}
+            <h3 style="margin-left: 10px; margin-bottom: 0;">EnergyAI</h3>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Navigation buttons
+    menu_options = {
+        "app": {"label": "App", "icon": "bolt"},
+        "home": {"label": "Home", "icon": "home"},
+        "dashboard": {"label": "Dashboard", "icon": "bar-chart-2"},
+        "upload": {"label": "Upload Data", "icon": "upload"},
+        "detection": {"label": "Run Detection", "icon": "search"},
+        "results": {"label": "Results", "icon": "activity"},
+        "insights": {"label": "Model Insights", "icon": "pie-chart"},
+        "recommendations": {"label": "Recommendations", "icon": "award"},
+        "settings": {"label": "Settings", "icon": "settings"}
+    }
+    
+    with col2:
+        nav_cols = st.columns(len(menu_options))
+        for idx, (page_id, page_info) in enumerate(menu_options.items()):
+            with nav_cols[idx]:
+                if st.button(f"{page_info['label']}", key=f"nav_{page_id}", 
+                             help=f"Go to {page_info['label']} page"):
                     st.session_state.current_page = page_id
                     st.rerun()
-        
+    
+    with col3:
+        # User info and logout
+        st.markdown(f"""
+        <div class="nav-user">
+            <span>Hi, {st.session_state.username}</span>
+        </div>
+        """, unsafe_allow_html=True)
         if st.button("Logout", key="logout"):
             st.session_state.authenticated = False
             st.session_state.username = ""
@@ -180,7 +227,7 @@ else:
         2. Run anomaly detection with your preferred algorithm
         3. Explore results and recommendations
         
-        Use the sidebar navigation to move between different sections of the app.
+        Use the navigation bar at the top to move between different sections of the app.
         """)
         
         st.image("assets/background.svg", use_column_width=True)
