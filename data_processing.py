@@ -508,16 +508,58 @@ def preprocess_data(data):
         except Exception as e:
             st.warning(f"Couldn't perform correlation analysis: {str(e)}")
     
-    # Fill any remaining NaN with 0
+    # Clean data before scaling - handle NaN, infinity and extreme values
     ml_features = ml_features.fillna(0)
     
-    # Scale features for ML algorithms
-    feature_names = ml_features.columns
-    scaler = StandardScaler()
-    ml_features = pd.DataFrame(
-        scaler.fit_transform(ml_features),
-        columns=feature_names
-    )
+    # Handle infinity and extreme values
+    # Replace inf/-inf with NaN first, then replace with very large/small values
+    ml_features = ml_features.replace([np.inf, -np.inf], np.nan)
+    
+    # Find columns with very large values that might cause scaling problems
+    for col in ml_features.columns:
+        # Calculate reasonable bounds (99.9% of normal distribution)
+        col_mean = ml_features[col].mean()
+        col_std = ml_features[col].std()
+        if pd.notna(col_mean) and pd.notna(col_std) and col_std > 0:
+            upper_bound = col_mean + 5 * col_std
+            lower_bound = col_mean - 5 * col_std
+            
+            # Replace extreme outliers with bounds
+            # This preserves outlier signal but prevents scaling issues
+            too_large = ml_features[col] > upper_bound
+            too_small = ml_features[col] < lower_bound
+            if too_large.any():
+                ml_features.loc[too_large, col] = upper_bound
+            if too_small.any():
+                ml_features.loc[too_small, col] = lower_bound
+    
+    # Final NaN handling
+    ml_features = ml_features.fillna(0)
+    
+    # Try scaling with robust checks
+    try:
+        # Scale features for ML algorithms
+        feature_names = ml_features.columns
+        scaler = StandardScaler()
+        scaled_features = scaler.fit_transform(ml_features)
+        
+        # Check if scaling produced any NaN or infinite values
+        if not np.all(np.isfinite(scaled_features)):
+            # If there are problems, use a more robust scaling approach
+            st.warning("Standard scaling produced non-finite values. Using robust scaling instead.")
+            # Replace problematic values
+            scaled_features = np.nan_to_num(scaled_features, nan=0.0, posinf=1.0, neginf=-1.0)
+        
+        ml_features = pd.DataFrame(scaled_features, columns=feature_names)
+    except Exception as e:
+        st.warning(f"Scaling error: {str(e)}. Using original features with capped values.")
+        # If scaling completely fails, just use the capped values
+        # Normalize manually to the 0-1 range for each column
+        for col in ml_features.columns:
+            col_min = ml_features[col].min()
+            col_max = ml_features[col].max()
+            if col_max > col_min:
+                ml_features[col] = (ml_features[col] - col_min) / (col_max - col_min)
     
     st.success(f"Data preprocessing complete! Created {len(ml_features.columns)} features for analysis.")
     
