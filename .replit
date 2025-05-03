@@ -1,4 +1,4 @@
-modules = ["python-3.11"]
+modules = ["python-3.11", "python3"]
 
 [nix]
 channel = "stable-24_05"
@@ -20,6 +20,10 @@ author = "agent"
 task = "workflow.run"
 args = "Streamlit Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Flask Server"
+
 [[workflows.workflow]]
 name = "Streamlit Server"
 author = "agent"
@@ -29,6 +33,19 @@ task = "shell.exec"
 args = "BROWSER_GATHER_USAGE_STATS=0 streamlit run app.py --server.port 5000 --server.headless true --server.enableCORS false --server.enableXsrfProtection false --browser.gatherUsageStats false"
 waitForPort = 5000
 
+[[workflows.workflow]]
+name = "Flask Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python app_flask.py"
+waitForPort = 5001
+
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 5001
+externalPort = 3000
