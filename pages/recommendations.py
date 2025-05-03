@@ -140,6 +140,7 @@ def show_recommendations():
     timeline_data = create_recommendation_timeline(recommendations)
     
     # Display as a Gantt chart
+    # Ensure dates are used as strings to avoid serialization issues
     fig = px.timeline(
         timeline_data, 
         x_start="Start", 
@@ -148,6 +149,12 @@ def show_recommendations():
         color="Priority",
         color_discrete_map={"High": "red", "Medium": "orange", "Low": "green"},
         title="Recommended Implementation Timeline"
+    )
+    
+    # Add date formatting to ensure proper display
+    fig.update_xaxes(
+        type='category',  # Treat dates as categories to avoid date parsing issues
+        tickangle=-45     # Angle the dates for better readability
     )
     
     # Update layout for dark theme
@@ -418,13 +425,12 @@ def create_recommendation_timeline(recommendations):
         
         # Calculate start and end dates
         # Stagger start dates to avoid everything starting at once
-        # Convert to string to avoid timedelta serialization issues
         rec_start = start_date + timedelta(days=i * 15)
         rec_end = rec_start + timedelta(days=duration)
         
-        # Convert dates to strings in ISO format for plotly
-        rec_start_str = rec_start.isoformat()
-        rec_end_str = rec_end.isoformat()
+        # Convert dates to strings in ISO format for plotly to avoid JSON serialization issues
+        rec_start_str = rec_start.strftime('%Y-%m-%d')
+        rec_end_str = rec_end.strftime('%Y-%m-%d')
         
         timeline_data.append({
             "Recommendation": rec['title'],
@@ -433,4 +439,6 @@ def create_recommendation_timeline(recommendations):
             "Priority": priority
         })
     
-    return pd.DataFrame(timeline_data)
+    # Use dates as strings in the DataFrame to avoid serialization issues with plotly
+    df = pd.DataFrame(timeline_data)
+    return df

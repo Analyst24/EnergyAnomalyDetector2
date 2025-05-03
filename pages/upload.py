@@ -187,7 +187,13 @@ def display_data_summary(data):
                     numeric_stats['kurtosis'] = data.select_dtypes(include=['number']).kurtosis()
                     
                     # Add coefficient of variation (CV) - normalized measure of dispersion
-                    numeric_stats['cv'] = numeric_stats['std'] / numeric_stats['mean'].abs()
+                    # Filter to only numeric columns to avoid timestamp issues
+                    numeric_only = numeric_stats.index.isin(data.select_dtypes(include=['number']).columns)
+                    if any(numeric_only):
+                        numeric_stats.loc[numeric_only, 'cv'] = (
+                            numeric_stats.loc[numeric_only, 'std'] / 
+                            numeric_stats.loc[numeric_only, 'mean'].abs().replace(0, float('nan'))
+                        )
                 
                 # Format the statistics
                 st.dataframe(numeric_stats)
