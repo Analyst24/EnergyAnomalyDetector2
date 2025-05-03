@@ -8,6 +8,10 @@ import seaborn as sns
 from datetime import datetime, timedelta
 import base64
 from io import BytesIO
+import os
+
+# Enforce offline mode
+os.environ['PLOTLY_OFFLINE'] = 'True'
 
 def display_energy_animation():
     """Display an energy-themed animation on the login page."""

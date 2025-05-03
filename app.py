@@ -7,6 +7,9 @@ from datetime import datetime
 import time
 from pathlib import Path
 
+# Set global offline mode to ensure no external connectivity is attempted
+os.environ["OFFLINE_MODE"] = "1"
+
 # Import modules
 from auth import authenticate, create_user_accounts_file, get_user_settings
 from utils import get_icon, footer
