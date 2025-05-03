@@ -35,8 +35,20 @@ def display_dashboard_with_data(data, anomalies=None):
     # Create dashboard summary with metrics
     viz.create_dashboard_summary(data, anomalies if anomalies is not None else [])
     
-    # Main charts section
-    st.markdown("### Energy Consumption Analysis")
+    # Add tab-based navigation for different dashboard views
+    dashboard_tabs = st.tabs(["📊 Metrics", "🌍 Energy Impact", "📈 Analysis"])
+    
+    with dashboard_tabs[0]:
+        # Main metrics section remains in the first tab
+        st.markdown("### Energy Consumption Metrics")
+    
+    with dashboard_tabs[1]:
+        # New emoji-based energy impact visualization
+        viz.create_emoji_energy_impact(data, anomalies if anomalies is not None else [])
+    
+    with dashboard_tabs[2]:
+        # Main charts section
+        st.markdown("### Energy Consumption Analysis")
     
     # Consumption overview chart
     viz.plot_consumption_overview(data)

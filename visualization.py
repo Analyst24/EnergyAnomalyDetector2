@@ -563,6 +563,184 @@ def plot_recommendations(data, anomalies):
         # Display gauge chart
         st.plotly_chart(fig3, use_container_width=True)
 
+def create_emoji_energy_impact(data, anomalies=None, baseline=None):
+    """
+    Create an emoji-based visualization of energy impact and efficiency levels.
+    
+    Args:
+        data: DataFrame with consumption data
+        anomalies: Indices of anomalies detected (optional)
+        baseline: Optional baseline for comparison (e.g., industry average)
+    """
+    st.markdown("## 🌍 Energy Impact Visualization")
+    st.markdown("### Visualizing your energy efficiency with emojis")
+    
+    # No data handling
+    if data is None or len(data) == 0:
+        st.warning("No data available for emoji visualization.")
+        cols = st.columns(5)
+        for i in range(5):
+            cols[i].markdown(f"<h1 style='text-align: center; color: gray;'>❓</h1>", unsafe_allow_html=True)
+        st.markdown("Upload data to see your energy impact visualization.")
+        return
+    
+    # Energy consumption analysis
+    if 'consumption' in data.columns:
+        # Calculate metrics
+        total_consumption = data['consumption'].sum()
+        average_consumption = data['consumption'].mean()
+        
+        # Anomaly impact if available
+        anomaly_impact = 0
+        if anomalies is not None and len(anomalies) > 0:
+            anomaly_data = data.iloc[anomalies]
+            normal_data = data.drop(index=anomalies)
+            
+            if not normal_data.empty and not anomaly_data.empty:
+                anomaly_avg = anomaly_data['consumption'].mean()
+                normal_avg = normal_data['consumption'].mean()
+                anomaly_impact = (anomaly_avg - normal_avg) / (anomaly_avg if anomaly_avg > 0 else 1) * 100
+        
+        # Determine energy efficiency category based on metrics
+        # Higher values mean less efficient
+        efficiency_score = 0
+        
+        # Add anomaly impact to score (0-40 points)
+        if anomaly_impact > 50:
+            efficiency_score += 40  # Very high anomaly impact
+        elif anomaly_impact > 30:
+            efficiency_score += 30
+        elif anomaly_impact > 15:
+            efficiency_score += 20
+        elif anomaly_impact > 5:
+            efficiency_score += 10
+            
+        # Check for spikes (0-30 points)
+        consumption_max = data['consumption'].max()
+        consumption_min = data['consumption'].min()
+        consumption_range = consumption_max - consumption_min
+        
+        if consumption_range > 0:
+            variation_coefficient = consumption_range / average_consumption
+            if variation_coefficient > 4:
+                efficiency_score += 30  # Very high variation
+            elif variation_coefficient > 3:
+                efficiency_score += 20
+            elif variation_coefficient > 2:
+                efficiency_score += 10
+        
+        # Check baseline comparison if available (0-30 points)
+        if baseline is not None and baseline > 0:
+            baseline_ratio = average_consumption / baseline
+            if baseline_ratio > 1.5:
+                efficiency_score += 30  # Much worse than baseline
+            elif baseline_ratio > 1.2:
+                efficiency_score += 20
+            elif baseline_ratio > 1:
+                efficiency_score += 10
+        else:
+            # Without baseline, assign points based on coefficient of variation
+            cv = data['consumption'].std() / average_consumption if average_consumption > 0 else 0
+            if cv > 0.5:
+                efficiency_score += 30  # High variation often indicates inefficiency
+            elif cv > 0.3:
+                efficiency_score += 20
+            elif cv > 0.1:
+                efficiency_score += 10
+                
+        # Map score to emoji categories (0-100 scale)
+        # 5 categories from excellent to poor
+        emoji_categories = [
+            {"range": (0, 20), "emoji": "🌱", "color": "green", "label": "Excellent", "description": "Very energy efficient with minimal waste"},
+            {"range": (20, 40), "emoji": "🌿", "color": "lightgreen", "label": "Good", "description": "Good efficiency with some room for improvement"},
+            {"range": (40, 60), "emoji": "🌤️", "color": "yellow", "label": "Moderate", "description": "Average efficiency with significant improvement potential"},
+            {"range": (60, 80), "emoji": "🔆", "color": "orange", "label": "Below Average", "description": "Below average efficiency with concerning waste"},
+            {"range": (80, 100), "emoji": "🔥", "color": "red", "label": "Poor", "description": "Poor efficiency with critical waste issues"}
+        ]
+        
+        # Find the appropriate category
+        category = next((cat for cat in emoji_categories if cat["range"][0] <= efficiency_score <= cat["range"][1]), 
+                        emoji_categories[-1])  # Default to the last category if none match
+        
+        # Display the emoji visualization
+        cols = st.columns(5)
+        
+        # Calculate how many of each emoji to show
+        filled_emojis = min(5, max(1, int(round(efficiency_score / 20))))
+        empty_spaces = 5 - filled_emojis
+        
+        # Display filled emojis (representing inefficiency)
+        for i in range(filled_emojis):
+            cols[i].markdown(f"<h1 style='text-align: center; color: {category['color']};'>{category['emoji']}</h1>", 
+                            unsafe_allow_html=True)
+            
+        # Display empty spaces (representing efficiency potential)
+        for i in range(filled_emojis, 5):
+            cols[i].markdown("<h1 style='text-align: center; color: gray;'>⚪</h1>", unsafe_allow_html=True)
+        
+        # Display category and description
+        st.markdown(f"### {category['label']} Energy Efficiency")
+        st.markdown(f"**{category['description']}**")
+        
+        # Display metrics
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Efficiency Score", f"{100-efficiency_score}/100", 
+                     delta=f"{-efficiency_score}" if efficiency_score > 50 else f"{100-efficiency_score}")
+            
+        with col2:
+            anomaly_percentage = len(anomalies) / len(data) * 100 if anomalies is not None and len(data) > 0 else 0
+            st.metric("Anomaly Percentage", f"{anomaly_percentage:.1f}%", 
+                     delta=f"-{anomaly_percentage:.1f}%" if anomaly_percentage > 0 else None)
+            
+        with col3:
+            variation_text = f"{data['consumption'].std() / data['consumption'].mean() * 100:.1f}%" if data['consumption'].mean() > 0 else "N/A"
+            st.metric("Consumption Variation", variation_text)
+        
+        # Environmental impact visualization
+        st.markdown("### 🌍 Environmental Impact")
+        
+        # Calculate a simplified environmental impact score (demonstration purposes)
+        # In a real system, this would use actual conversion factors for carbon, etc.
+        emissions_score = min(100, efficiency_score * 1.2)  # Higher inefficiency = higher emissions
+        
+        # Environmental impact emojis
+        impact_emojis = {
+            "forest": {"emoji": "🌳", "count": max(1, int(5 - (emissions_score / 20)))},
+            "warming": {"emoji": "🌡️", "count": max(1, int(emissions_score / 20))}
+        }
+        
+        impact_cols = st.columns(5)
+        
+        # Show warming indicators
+        for i in range(impact_emojis["warming"]["count"]):
+            impact_cols[i].markdown(f"<h1 style='text-align: center;'>🌡️</h1>", unsafe_allow_html=True)
+            
+        # Show forest/trees (positive)
+        for i in range(impact_emojis["warming"]["count"], 5):
+            impact_cols[i].markdown(f"<h1 style='text-align: center;'>🌳</h1>", unsafe_allow_html=True)
+        
+        # Tips based on score
+        st.markdown("### 💡 Quick Efficiency Tips")
+        
+        if efficiency_score < 20:
+            st.success("Continue your excellent energy management practices!")
+        elif efficiency_score < 40:
+            st.info("Consider scheduling regular energy audits to maintain your good performance.")
+        elif efficiency_score < 60:
+            st.info("Look into optimizing your peak consumption hours and addressing the anomalies.")
+        elif efficiency_score < 80:
+            st.warning("Implement an energy management system and address the identified anomalies promptly.")
+        else:
+            st.error("Urgent action needed: Consider a comprehensive energy audit and immediate anomaly remediation.")
+    else:
+        st.warning("No consumption data available for emoji visualization.")
+        cols = st.columns(5)
+        for i in range(5):
+            cols[i].markdown(f"<h1 style='text-align: center; color: gray;'>❓</h1>", unsafe_allow_html=True)
+        st.markdown("Please make sure your data includes a 'consumption' column.")
+
 def create_dashboard_summary(data, anomalies):
     """
     Create a summary dashboard with key metrics.
