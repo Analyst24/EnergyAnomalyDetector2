@@ -124,7 +124,9 @@ else:
         st.image(get_icon("bolt"), width=50)
         st.title(f"Welcome, {st.session_state.username}")
         
+        # Ordered dictionary to ensure sidebar menu appears in the specified order
         menu_options = {
+            "app": {"label": "App", "icon": "bolt"},
             "home": {"label": "Home", "icon": "home"},
             "dashboard": {"label": "Dashboard", "icon": "bar-chart-2"},
             "upload": {"label": "Upload Data", "icon": "upload"},
@@ -151,7 +153,30 @@ else:
             st.rerun()
     
     # Main content area based on current page
-    if st.session_state.current_page == "home":
+    if st.session_state.current_page == "app":
+        # App overview page
+        st.title("Energy Anomaly Detection App")
+        st.markdown("""
+        ### Overview
+        This application helps you detect anomalies in energy consumption data using advanced machine learning algorithms.
+        
+        ### Features
+        - **Multiple Detection Algorithms**: Isolation Forest, Autoencoder, and K-Means clustering
+        - **Interactive Visualizations**: Explore your data with dynamic charts
+        - **Actionable Insights**: Get recommendations based on detected anomalies
+        - **Comprehensive Reports**: Export your findings as CSV or PDF
+        
+        ### Getting Started
+        1. Upload your energy consumption data
+        2. Run anomaly detection with your preferred algorithm
+        3. Explore results and recommendations
+        
+        Use the sidebar navigation to move between different sections of the app.
+        """)
+        
+        st.image("assets/background.svg", use_column_width=True)
+    
+    elif st.session_state.current_page == "home":
         from pages.home import show_home
         show_home()
     
