@@ -269,7 +269,7 @@ def show_isolation_forest_insights(results):
             legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="isolation_forest_histogram")
         
         # Explanation
         st.markdown("""
@@ -334,7 +334,7 @@ def show_autoencoder_insights(results):
             legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="autoencoder_histogram")
         
         # Explanation
         st.markdown("""
@@ -400,7 +400,7 @@ def show_kmeans_insights(results):
             legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="kmeans_histogram")
         
         # Explanation
         st.markdown("""
