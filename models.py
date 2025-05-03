@@ -284,21 +284,11 @@ def evaluate_model_with_synthetic_labels(data, anomalies, original_data=None):
         recall = recall_score(synthetic_labels, predictions, zero_division=0)
         f1 = f1_score(synthetic_labels, predictions, zero_division=0)
         
-        # AUC - For this we need to have a score/probability rather than binary prediction
-        # We'll try to use the anomaly scores as probabilities
+        # AUC - For this we need to have a probability-like score rather than binary prediction
+        # We'll use our predictions as a simple approximation
         try:
-            if 'scores' in model_results:
-                # For Isolation Forest (invert scores since lower values are more anomalous)
-                scores_for_auc = 1 - model_results['scores']
-                auc_value = roc_auc_score(synthetic_labels, scores_for_auc)
-            elif 'reconstruction_errors' in model_results:
-                # For Autoencoder
-                auc_value = roc_auc_score(synthetic_labels, model_results['reconstruction_errors'])
-            elif 'distances' in model_results:
-                # For K-Means
-                auc_value = roc_auc_score(synthetic_labels, model_results['distances'])
-            else:
-                auc_value = 0.5  # Fallback value
+            # For AUC calculation, we'll just use our binary predictions as a fallback
+            auc_value = roc_auc_score(synthetic_labels, predictions)
         except Exception:
             auc_value = 0.5  # Fallback value if there's an error
         
