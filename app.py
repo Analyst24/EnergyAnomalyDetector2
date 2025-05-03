@@ -8,10 +8,11 @@ import time
 from pathlib import Path
 
 # Import modules
-from auth import authenticate, create_user_accounts_file
+from auth import authenticate, initialize_auth
 from utils import get_icon, footer
 import visualization as viz
 from data_processing import load_data, preprocess_data
+import database
 
 # Set page config
 st.set_page_config(
@@ -45,9 +46,19 @@ if "settings" not in st.session_state:
         "selected_algorithms": ["isolation_forest", "autoencoder", "kmeans"],
         "theme": "dark"
     }
+if "db_connected" not in st.session_state:
+    st.session_state.db_connected = False
 
-# Create user accounts file if it doesn't exist
-create_user_accounts_file()
+# Initialize database and authentication
+try:
+    # Initialize database tables and create default admin user
+    initialize_auth()
+    st.session_state.db_connected = True
+    st.success("Database connected successfully")
+except Exception as e:
+    st.error(f"Database initialization error: {str(e)}")
+    st.session_state.db_connected = False
+    st.warning("Using file-based authentication as fallback")
 
 # App starts here
 if not st.session_state.authenticated:
@@ -88,31 +99,39 @@ if not st.session_state.authenticated:
                 elif new_password != confirm_password:
                     st.error("Passwords do not match")
                 else:
-                    # Create user accounts directory if it doesn't exist
-                    user_dir = Path("user_accounts")
-                    user_dir.mkdir(exist_ok=True)
-                    
-                    user_file = user_dir / "users.json"
-                    
-                    if user_file.exists():
-                        with open(user_file, "r") as f:
-                            users = json.load(f)
+                    # Try to create user in database first
+                    if st.session_state.db_connected:
+                        success, message = database.create_user(new_username, new_password, email)
+                        if success:
+                            st.success("Account created successfully! Please login.")
+                        else:
+                            st.error(f"Failed to create account: {message}")
                     else:
-                        users = {}
-                    
-                    if new_username in users:
-                        st.error("Username already exists")
-                    else:
-                        users[new_username] = {
-                            "password": new_password,
-                            "email": email,
-                            "created_at": str(datetime.now())
-                        }
+                        # Fall back to file-based storage
+                        user_dir = Path("user_accounts")
+                        user_dir.mkdir(exist_ok=True)
                         
-                        with open(user_file, "w") as f:
-                            json.dump(users, f)
+                        user_file = user_dir / "users.json"
                         
-                        st.success("Account created successfully! Please login.")
+                        if user_file.exists():
+                            with open(user_file, "r") as f:
+                                users = json.load(f)
+                        else:
+                            users = {}
+                        
+                        if new_username in users:
+                            st.error("Username already exists")
+                        else:
+                            users[new_username] = {
+                                "password": new_password,
+                                "email": email,
+                                "created_at": str(datetime.now())
+                            }
+                            
+                            with open(user_file, "w") as f:
+                                json.dump(users, f)
+                            
+                            st.success("Account created successfully! Please login.")
     
     # Display footer
     footer()
