@@ -1,627 +1,435 @@
 """
-Database module for Energy Anomaly Detection System.
-Handles database connections and operations using SQLAlchemy.
+File-based database module for Energy Anomaly Detection System.
+This is a 100% offline version that uses JSON files for data storage.
 """
 
 import os
 import streamlit as st
 import pandas as pd
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, Text, ForeignKey, Table, MetaData
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 import json
+from pathlib import Path
+import uuid
+import time
+import pickle
 
-# Get database URL from environment variable
-DATABASE_URL = os.environ.get("DATABASE_URL")
-if not DATABASE_URL:
-    st.error("DATABASE_URL environment variable not set. Database functionality will not work.")
+# Initialize file-based storage directories
+DATA_DIR = Path("data_storage")
+USERS_DIR = DATA_DIR / "users"
+DATASETS_DIR = DATA_DIR / "datasets"
+MODELS_DIR = DATA_DIR / "models"
+RESULTS_DIR = DATA_DIR / "results"
 
-# Create SQLAlchemy engine
-try:
-    engine = create_engine(DATABASE_URL)
-    Base = declarative_base()
-    Session = sessionmaker(bind=engine)
+# Create directories if they don't exist
+for directory in [DATA_DIR, USERS_DIR, DATASETS_DIR, MODELS_DIR, RESULTS_DIR]:
+    directory.mkdir(parents=True, exist_ok=True)
+
+# Set session state for database connection (always true for file-based)
+if "db_connected" not in st.session_state:
     st.session_state.db_connected = True
-except Exception as e:
-    st.error(f"Failed to connect to database: {str(e)}")
-    st.session_state.db_connected = False
 
-
-# Define database models
-class User(Base):
-    """User model for authentication and settings."""
-    __tablename__ = "users"
-    
-    id = Column(Integer, primary_key=True)
-    username = Column(String(50), unique=True, nullable=False)
-    password = Column(String(100), nullable=False)  # Store hashed password
-    email = Column(String(100), nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
-    last_login = Column(DateTime, nullable=True)
-    settings = Column(Text, nullable=True)  # JSON string of user settings
-    
-    # Relationships
-    datasets = relationship("Dataset", back_populates="user", cascade="all, delete-orphan")
-    models = relationship("Model", back_populates="user", cascade="all, delete-orphan")
-
-
-class Dataset(Base):
-    """Dataset model for storing uploaded energy data."""
-    __tablename__ = "datasets"
-    
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    name = Column(String(100), nullable=False)
-    description = Column(String(200), nullable=True)
-    upload_date = Column(DateTime, default=datetime.now)
-    file_path = Column(String(200), nullable=True)  # Path to file if stored on disk
-    row_count = Column(Integer, nullable=True)
-    column_count = Column(Integer, nullable=True)
-    data_metadata = Column(Text, nullable=True)  # JSON string with dataset metadata
-    
-    # Relationships
-    user = relationship("User", back_populates="datasets")
-    energy_records = relationship("EnergyRecord", back_populates="dataset", cascade="all, delete-orphan")
-    detection_results = relationship("DetectionResult", back_populates="dataset", cascade="all, delete-orphan")
-
-
-class EnergyRecord(Base):
-    """Energy consumption record model."""
-    __tablename__ = "energy_records"
-    
-    id = Column(Integer, primary_key=True)
-    dataset_id = Column(Integer, ForeignKey("datasets.id"), nullable=False)
-    timestamp = Column(DateTime, nullable=False)
-    consumption = Column(Float, nullable=False)
-    temperature = Column(Float, nullable=True)
-    humidity = Column(Float, nullable=True)
-    occupancy = Column(Integer, nullable=True)
-    day_of_week = Column(Integer, nullable=True)
-    hour_of_day = Column(Integer, nullable=True)
-    is_weekend = Column(Boolean, nullable=True)
-    is_holiday = Column(Boolean, nullable=True)
-    additional_features = Column(Text, nullable=True)  # JSON string with additional features
-    
-    # Relationships
-    dataset = relationship("Dataset", back_populates="energy_records")
-
-
-class Model(Base):
-    """Machine learning model metadata."""
-    __tablename__ = "models"
-    
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    name = Column(String(100), nullable=False)
-    model_type = Column(String(50), nullable=False)  # isolation_forest, autoencoder, kmeans
-    created_at = Column(DateTime, default=datetime.now)
-    file_path = Column(String(200), nullable=True)  # Path to saved model file
-    parameters = Column(Text, nullable=True)  # JSON string with model parameters
-    metrics = Column(Text, nullable=True)  # JSON string with model performance metrics
-    
-    # Relationships
-    user = relationship("User", back_populates="models")
-    detection_results = relationship("DetectionResult", back_populates="model", cascade="all, delete-orphan")
-
-
-class DetectionResult(Base):
-    """Anomaly detection results."""
-    __tablename__ = "detection_results"
-    
-    id = Column(Integer, primary_key=True)
-    dataset_id = Column(Integer, ForeignKey("datasets.id"), nullable=False)
-    model_id = Column(Integer, ForeignKey("models.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
-    anomaly_count = Column(Integer, nullable=False, default=0)
-    anomaly_percentage = Column(Float, nullable=False, default=0.0)
-    result_data = Column(Text, nullable=True)  # JSON string with detailed results
-    
-    # Relationships
-    dataset = relationship("Dataset", back_populates="detection_results")
-    model = relationship("Model", back_populates="detection_results")
-    recommendations = relationship("Recommendation", back_populates="detection_result", cascade="all, delete-orphan")
-
-
-class Recommendation(Base):
-    """Recommendations based on anomaly detection."""
-    __tablename__ = "recommendations"
-    
-    id = Column(Integer, primary_key=True)
-    detection_result_id = Column(Integer, ForeignKey("detection_results.id"), nullable=False)
-    category = Column(String(50), nullable=False)  # e.g., "energy_saving", "maintenance", "operation"
-    priority = Column(Integer, nullable=False, default=1)  # 1 (highest) to 5 (lowest)
-    title = Column(String(100), nullable=False)
-    description = Column(Text, nullable=False)
-    potential_savings = Column(Float, nullable=True)  # Estimated savings in kWh or currency
-    implementation_difficulty = Column(Integer, nullable=True)  # 1 (easy) to 5 (hard)
-    created_at = Column(DateTime, default=datetime.now)
-    
-    # Relationships
-    detection_result = relationship("DetectionResult", back_populates="recommendations")
-
-
-# Create tables if they don't exist
+# File-based database operations
 def initialize_database():
-    """Initialize the database by creating all defined tables if they don't exist."""
+    """Initialize the file-based database by creating necessary directories."""
     try:
-        Base.metadata.create_all(engine)
-        st.success("Database initialized successfully")
+        # Create a default admin user if it doesn't exist
+        users_file = USERS_DIR / "users.json"
+        if not users_file.exists():
+            default_users = {
+                "admin": {
+                    "password": "admin123",
+                    "email": "admin@example.com",
+                    "created_at": datetime.now().isoformat(),
+                    "last_login": None,
+                    "settings": {
+                        "anomaly_threshold": 0.5,
+                        "selected_algorithms": ["isolation_forest", "autoencoder", "kmeans"],
+                        "theme": "dark"
+                    }
+                }
+            }
+            with open(users_file, "w") as f:
+                json.dump(default_users, f, indent=2)
+        
+        st.success("File-based database initialized successfully")
         return True
     except Exception as e:
-        st.error(f"Failed to initialize database: {str(e)}")
+        st.error(f"Failed to initialize file-based database: {str(e)}")
         return False
-
 
 # User management functions
 def create_user(username, password, email=None):
     """Create a new user in the database."""
-    session = Session()
     try:
+        users_file = USERS_DIR / "users.json"
+        if users_file.exists():
+            with open(users_file, "r") as f:
+                users = json.load(f)
+        else:
+            users = {}
+        
         # Check if user already exists
-        existing_user = session.query(User).filter(User.username == username).first()
-        if existing_user:
-            session.close()
+        if username in users:
             return False, "Username already exists"
         
         # Create new user
-        new_user = User(
-            username=username,
-            password=password,  # In production, this should be hashed
-            email=email,
-            created_at=datetime.now(),
-            settings=json.dumps({})  # Default empty settings
-        )
-        session.add(new_user)
-        session.commit()
-        session.close()
+        users[username] = {
+            "password": password,  # In production, this should be hashed
+            "email": email,
+            "created_at": datetime.now().isoformat(),
+            "last_login": None,
+            "settings": {}
+        }
+        
+        with open(users_file, "w") as f:
+            json.dump(users, f, indent=2)
+        
         return True, "User created successfully"
     except Exception as e:
-        session.rollback()
-        session.close()
         return False, str(e)
-
 
 def get_user(username):
     """Get user by username."""
-    session = Session()
     try:
-        user = session.query(User).filter(User.username == username).first()
-        session.close()
-        return user
+        users_file = USERS_DIR / "users.json"
+        if not users_file.exists():
+            return None
+        
+        with open(users_file, "r") as f:
+            users = json.load(f)
+        
+        if username in users:
+            return users[username]
+        
+        return None
     except Exception as e:
-        session.close()
         st.error(f"Database error: {str(e)}")
         return None
-
 
 def verify_user(username, password):
     """Verify user credentials."""
-    session = Session()
     try:
-        user = session.query(User).filter(User.username == username).first()
-        if user and user.password == password:  # In production, compare hashed passwords
+        users_file = USERS_DIR / "users.json"
+        if not users_file.exists():
+            return False
+        
+        with open(users_file, "r") as f:
+            users = json.load(f)
+        
+        if username in users and users[username]["password"] == password:
             # Update last login
-            user.last_login = datetime.now()
-            session.commit()
-            session.close()
+            users[username]["last_login"] = datetime.now().isoformat()
+            
+            with open(users_file, "w") as f:
+                json.dump(users, f, indent=2)
+            
             return True
-        session.close()
+        
         return False
     except Exception as e:
-        session.close()
         st.error(f"Database error: {str(e)}")
         return False
-
 
 def update_user_settings(username, settings):
     """Update user settings."""
-    session = Session()
     try:
-        user = session.query(User).filter(User.username == username).first()
-        if user:
-            user.settings = json.dumps(settings)
-            session.commit()
-            session.close()
+        users_file = USERS_DIR / "users.json"
+        if not users_file.exists():
+            return False, "User not found"
+        
+        with open(users_file, "r") as f:
+            users = json.load(f)
+        
+        if username in users:
+            users[username]["settings"] = settings
+            
+            with open(users_file, "w") as f:
+                json.dump(users, f, indent=2)
+            
             return True, "Settings updated successfully"
-        session.close()
+        
         return False, "User not found"
     except Exception as e:
-        session.rollback()
-        session.close()
         return False, str(e)
-
 
 def get_user_settings(username):
     """Get user settings."""
-    session = Session()
     try:
-        user = session.query(User).filter(User.username == username).first()
-        if user and user.settings:
-            settings = json.loads(user.settings)
-            session.close()
-            return settings
-        session.close()
+        users_file = USERS_DIR / "users.json"
+        if not users_file.exists():
+            return {}
+        
+        with open(users_file, "r") as f:
+            users = json.load(f)
+        
+        if username in users and "settings" in users[username]:
+            return users[username]["settings"]
+        
         return {}
     except Exception as e:
-        session.close()
         st.error(f"Database error: {str(e)}")
         return {}
-
 
 # Dataset management functions
 def save_dataset(username, name, description, dataframe, file_path=None):
-    """Save dataset metadata and records to database."""
-    session = Session()
+    """Save dataset metadata and records to file."""
     try:
-        # Get user
-        user = session.query(User).filter(User.username == username).first()
-        if not user:
-            session.close()
-            return False, "User not found"
+        # Generate a unique ID for the dataset
+        dataset_id = str(uuid.uuid4())
         
-        # Create dataset
-        new_dataset = Dataset(
-            user_id=user.id,
-            name=name,
-            description=description,
-            upload_date=datetime.now(),
-            file_path=file_path,
-            row_count=len(dataframe),
-            column_count=len(dataframe.columns),
-            data_metadata=json.dumps({
-                "columns": list(dataframe.columns),
-                "dtypes": {col: str(dataframe[col].dtype) for col in dataframe.columns}
-            })
-        )
-        session.add(new_dataset)
-        session.flush()  # Get the dataset_id
+        # Save metadata
+        dataset_dir = DATASETS_DIR / username
+        dataset_dir.mkdir(exist_ok=True)
         
-        # Extract records from dataframe
-        records = []
-        for _, row in dataframe.iterrows():
-            # Extract standard fields
-            record = {
-                "dataset_id": new_dataset.id,
-                "timestamp": row.get("timestamp", datetime.now()),
-                "consumption": float(row.get("consumption", 0.0))
-            }
-            
-            # Optional fields
-            if "temperature" in row:
-                record["temperature"] = float(row.get("temperature"))
-            if "humidity" in row:
-                record["humidity"] = float(row.get("humidity"))
-            if "occupancy" in row:
-                record["occupancy"] = int(row.get("occupancy"))
-            if "day_of_week" in row:
-                record["day_of_week"] = int(row.get("day_of_week"))
-            if "hour_of_day" in row:
-                record["hour_of_day"] = int(row.get("hour_of_day"))
-            if "is_weekend" in row:
-                record["is_weekend"] = bool(row.get("is_weekend"))
-            if "is_holiday" in row:
-                record["is_holiday"] = bool(row.get("is_holiday"))
-            
-            # Additional features as JSON
-            additional_features = {
-                col: row[col] for col in row.index 
-                if col not in ["timestamp", "consumption", "temperature", "humidity", 
-                             "occupancy", "day_of_week", "hour_of_day", "is_weekend", "is_holiday"]
-            }
-            if additional_features:
-                record["additional_features"] = json.dumps(additional_features)
-            
-            records.append(EnergyRecord(**record))
+        metadata = {
+            "id": dataset_id,
+            "name": name,
+            "description": description,
+            "upload_date": datetime.now().isoformat(),
+            "file_path": str(file_path) if file_path else None,
+            "row_count": len(dataframe),
+            "column_count": len(dataframe.columns),
+            "columns": list(dataframe.columns),
+            "dtypes": {col: str(dataframe[col].dtype) for col in dataframe.columns}
+        }
         
-        # Batch insert records
-        session.bulk_save_objects(records)
-        session.commit()
-        session.close()
-        return True, f"Dataset '{name}' saved with {len(records)} records"
+        metadata_file = dataset_dir / f"{dataset_id}_metadata.json"
+        with open(metadata_file, "w") as f:
+            json.dump(metadata, f, indent=2)
+        
+        # Save data
+        data_file = dataset_dir / f"{dataset_id}_data.csv"
+        dataframe.to_csv(data_file, index=False)
+        
+        # Keep track of datasets per user
+        user_datasets_file = dataset_dir / "datasets.json"
+        if user_datasets_file.exists():
+            with open(user_datasets_file, "r") as f:
+                user_datasets = json.load(f)
+        else:
+            user_datasets = []
+        
+        user_datasets.append({
+            "id": dataset_id,
+            "name": name,
+            "description": description,
+            "upload_date": datetime.now().isoformat()
+        })
+        
+        with open(user_datasets_file, "w") as f:
+            json.dump(user_datasets, f, indent=2)
+        
+        return True, f"Dataset '{name}' saved with {len(dataframe)} records", dataset_id
     except Exception as e:
-        session.rollback()
-        session.close()
-        return False, str(e)
-
+        return False, str(e), None
 
 def get_user_datasets(username):
     """Get all datasets for a user."""
-    session = Session()
     try:
-        user = session.query(User).filter(User.username == username).first()
-        if not user:
-            session.close()
+        dataset_dir = DATASETS_DIR / username
+        user_datasets_file = dataset_dir / "datasets.json"
+        
+        if not user_datasets_file.exists():
             return []
         
-        datasets = session.query(Dataset).filter(Dataset.user_id == user.id).all()
-        result = []
-        for dataset in datasets:
-            result.append({
-                "id": dataset.id,
-                "name": dataset.name,
-                "description": dataset.description,
-                "upload_date": dataset.upload_date,
-                "row_count": dataset.row_count,
-                "column_count": dataset.column_count
-            })
+        with open(user_datasets_file, "r") as f:
+            user_datasets = json.load(f)
         
-        session.close()
-        return result
+        return user_datasets
     except Exception as e:
-        session.close()
         st.error(f"Database error: {str(e)}")
         return []
 
-
-def get_dataset(dataset_id):
-    """Get dataset by ID including all energy records."""
-    session = Session()
+def get_dataset(dataset_id, username):
+    """Get dataset by ID including all data."""
     try:
-        dataset = session.query(Dataset).filter(Dataset.id == dataset_id).first()
-        if not dataset:
-            session.close()
-            return None, []
+        dataset_dir = DATASETS_DIR / username
+        metadata_file = dataset_dir / f"{dataset_id}_metadata.json"
+        data_file = dataset_dir / f"{dataset_id}_data.csv"
         
-        # Get all energy records for this dataset
-        records = session.query(EnergyRecord).filter(EnergyRecord.dataset_id == dataset_id).all()
+        if not metadata_file.exists() or not data_file.exists():
+            return None, None
         
-        # Convert records to dataframe
-        data = []
-        for record in records:
-            row = {
-                "timestamp": record.timestamp,
-                "consumption": record.consumption,
-            }
-            
-            # Add optional fields if they exist
-            if record.temperature is not None:
-                row["temperature"] = record.temperature
-            if record.humidity is not None:
-                row["humidity"] = record.humidity
-            if record.occupancy is not None:
-                row["occupancy"] = record.occupancy
-            if record.day_of_week is not None:
-                row["day_of_week"] = record.day_of_week
-            if record.hour_of_day is not None:
-                row["hour_of_day"] = record.hour_of_day
-            if record.is_weekend is not None:
-                row["is_weekend"] = record.is_weekend
-            if record.is_holiday is not None:
-                row["is_holiday"] = record.is_holiday
-            
-            # Add additional features
-            if record.additional_features:
-                additional = json.loads(record.additional_features)
-                for key, value in additional.items():
-                    row[key] = value
-            
-            data.append(row)
+        with open(metadata_file, "r") as f:
+            metadata = json.load(f)
         
-        df = pd.DataFrame(data)
+        data = pd.read_csv(data_file)
         
-        # Dataset metadata
-        metadata = {
-            "id": dataset.id,
-            "name": dataset.name,
-            "description": dataset.description,
-            "upload_date": dataset.upload_date,
-            "row_count": dataset.row_count,
-            "column_count": dataset.column_count
-        }
-        
-        session.close()
-        return metadata, df
+        return metadata, data
     except Exception as e:
-        session.close()
         st.error(f"Database error: {str(e)}")
         return None, None
 
-
 # Model management functions
 def save_model_metadata(username, name, model_type, file_path, parameters, metrics):
-    """Save model metadata to database."""
-    session = Session()
+    """Save model metadata to file."""
     try:
-        # Get user
-        user = session.query(User).filter(User.username == username).first()
-        if not user:
-            session.close()
-            return False, "User not found", None
+        # Generate a unique ID for the model
+        model_id = str(uuid.uuid4())
         
-        # Create model entry
-        new_model = Model(
-            user_id=user.id,
-            name=name,
-            model_type=model_type,
-            created_at=datetime.now(),
-            file_path=file_path,
-            parameters=json.dumps(parameters),
-            metrics=json.dumps(metrics)
-        )
-        session.add(new_model)
-        session.commit()
-        model_id = new_model.id
-        session.close()
+        # Save metadata
+        model_dir = MODELS_DIR / username
+        model_dir.mkdir(exist_ok=True)
+        
+        metadata = {
+            "id": model_id,
+            "name": name,
+            "model_type": model_type,
+            "created_at": datetime.now().isoformat(),
+            "file_path": str(file_path),
+            "parameters": parameters,
+            "metrics": metrics
+        }
+        
+        metadata_file = model_dir / f"{model_id}_metadata.json"
+        with open(metadata_file, "w") as f:
+            json.dump(metadata, f, indent=2)
+        
+        # Keep track of models per user
+        user_models_file = model_dir / "models.json"
+        if user_models_file.exists():
+            with open(user_models_file, "r") as f:
+                user_models = json.load(f)
+        else:
+            user_models = []
+        
+        user_models.append({
+            "id": model_id,
+            "name": name,
+            "model_type": model_type,
+            "created_at": datetime.now().isoformat()
+        })
+        
+        with open(user_models_file, "w") as f:
+            json.dump(user_models, f, indent=2)
+        
         return True, f"Model '{name}' metadata saved", model_id
     except Exception as e:
-        session.rollback()
-        session.close()
         return False, str(e), None
-
 
 def get_user_models(username):
     """Get all models for a user."""
-    session = Session()
     try:
-        user = session.query(User).filter(User.username == username).first()
-        if not user:
-            session.close()
+        model_dir = MODELS_DIR / username
+        user_models_file = model_dir / "models.json"
+        
+        if not user_models_file.exists():
             return []
         
-        models = session.query(Model).filter(Model.user_id == user.id).all()
-        result = []
-        for model in models:
-            result.append({
-                "id": model.id,
-                "name": model.name,
-                "model_type": model.model_type,
-                "created_at": model.created_at,
-                "parameters": json.loads(model.parameters) if model.parameters else {},
-                "metrics": json.loads(model.metrics) if model.metrics else {}
-            })
+        with open(user_models_file, "r") as f:
+            user_models = json.load(f)
         
-        session.close()
-        return result
+        return user_models
     except Exception as e:
-        session.close()
         st.error(f"Database error: {str(e)}")
         return []
 
-
-# Detection result functions
-def save_detection_result(dataset_id, model_id, anomaly_indices, scores):
-    """Save anomaly detection results to database."""
-    session = Session()
+# Detection results functions
+def save_detection_result(dataset_id, model_id, anomaly_indices, scores, username):
+    """Save anomaly detection results to file."""
     try:
-        # Get row count from dataset
-        dataset = session.query(Dataset).filter(Dataset.id == dataset_id).first()
-        if not dataset:
-            session.close()
-            return False, "Dataset not found", None
+        # Generate a unique ID for the result
+        result_id = str(uuid.uuid4())
         
-        row_count = dataset.row_count
+        # Save result
+        result_dir = RESULTS_DIR / username
+        result_dir.mkdir(exist_ok=True)
+        
+        # Calculate anomaly stats
         anomaly_count = len(anomaly_indices)
-        anomaly_percentage = (anomaly_count / row_count) * 100 if row_count > 0 else 0
+        total_count = len(scores)
+        anomaly_percentage = (anomaly_count / total_count) * 100 if total_count > 0 else 0
         
-        # Create result entry
-        result_data = {
+        result = {
+            "id": result_id,
+            "dataset_id": dataset_id,
+            "model_id": model_id,
+            "created_at": datetime.now().isoformat(),
+            "anomaly_count": anomaly_count,
+            "anomaly_percentage": anomaly_percentage,
             "anomaly_indices": anomaly_indices.tolist() if hasattr(anomaly_indices, 'tolist') else list(anomaly_indices),
-            "scores": scores.tolist() if hasattr(scores, 'tolist') else list(scores),
+            "scores": scores.tolist() if hasattr(scores, 'tolist') else list(scores)
         }
         
-        new_result = DetectionResult(
-            dataset_id=dataset_id,
-            model_id=model_id,
-            created_at=datetime.now(),
-            anomaly_count=anomaly_count,
-            anomaly_percentage=anomaly_percentage,
-            result_data=json.dumps(result_data)
-        )
-        session.add(new_result)
-        session.commit()
-        result_id = new_result.id
-        session.close()
-        return True, f"Detection results saved with {anomaly_count} anomalies ({anomaly_percentage:.2f}%)", result_id
+        result_file = result_dir / f"{result_id}_result.json"
+        with open(result_file, "w") as f:
+            json.dump(result, f, indent=2)
+        
+        # Keep track of results per user
+        user_results_file = result_dir / "results.json"
+        if user_results_file.exists():
+            with open(user_results_file, "r") as f:
+                user_results = json.load(f)
+        else:
+            user_results = []
+        
+        user_results.append({
+            "id": result_id,
+            "dataset_id": dataset_id,
+            "model_id": model_id,
+            "created_at": datetime.now().isoformat(),
+            "anomaly_count": anomaly_count,
+            "anomaly_percentage": anomaly_percentage
+        })
+        
+        with open(user_results_file, "w") as f:
+            json.dump(user_results, f, indent=2)
+        
+        return True, f"Detection results saved with {anomaly_count} anomalies detected", result_id
     except Exception as e:
-        session.rollback()
-        session.close()
         return False, str(e), None
 
-
-def get_detection_result(result_id):
+def get_detection_result(result_id, username):
     """Get detection result by ID."""
-    session = Session()
     try:
-        result = session.query(DetectionResult).filter(DetectionResult.id == result_id).first()
-        if not result:
-            session.close()
+        result_dir = RESULTS_DIR / username
+        result_file = result_dir / f"{result_id}_result.json"
+        
+        if not result_file.exists():
             return None
         
-        # Get related dataset and model
-        dataset = session.query(Dataset).filter(Dataset.id == result.dataset_id).first()
-        model = session.query(Model).filter(Model.id == result.model_id).first()
+        with open(result_file, "r") as f:
+            result = json.load(f)
         
-        # Prepare result
-        detection_result = {
-            "id": result.id,
-            "created_at": result.created_at,
-            "anomaly_count": result.anomaly_count,
-            "anomaly_percentage": result.anomaly_percentage,
-            "dataset": {
-                "id": dataset.id,
-                "name": dataset.name,
-                "row_count": dataset.row_count
-            },
-            "model": {
-                "id": model.id,
-                "name": model.name,
-                "model_type": model.model_type
-            }
-        }
-        
-        # Parse result data
-        if result.result_data:
-            result_data = json.loads(result.result_data)
-            detection_result["anomaly_indices"] = result_data.get("anomaly_indices", [])
-            detection_result["scores"] = result_data.get("scores", [])
-        
-        session.close()
-        return detection_result
+        return result
     except Exception as e:
-        session.close()
         st.error(f"Database error: {str(e)}")
         return None
 
-
-# Recommendation functions
-def save_recommendations(detection_result_id, recommendations):
+# Recommendations functions
+def save_recommendations(detection_result_id, recommendations, username):
     """Save recommendations based on anomaly detection."""
-    session = Session()
     try:
-        # Verify detection result exists
-        result = session.query(DetectionResult).filter(DetectionResult.id == detection_result_id).first()
-        if not result:
-            session.close()
-            return False, "Detection result not found"
+        recommendations_dir = RESULTS_DIR / username / "recommendations"
+        recommendations_dir.mkdir(exist_ok=True)
         
-        # Save each recommendation
-        for rec in recommendations:
-            new_rec = Recommendation(
-                detection_result_id=detection_result_id,
-                category=rec.get("category", "general"),
-                priority=rec.get("priority", 3),
-                title=rec.get("title", "Untitled recommendation"),
-                description=rec.get("description", ""),
-                potential_savings=rec.get("potential_savings"),
-                implementation_difficulty=rec.get("implementation_difficulty", 3),
-                created_at=datetime.now()
-            )
-            session.add(new_rec)
+        recommendations_data = {
+            "detection_result_id": detection_result_id,
+            "created_at": datetime.now().isoformat(),
+            "recommendations": recommendations
+        }
         
-        session.commit()
-        session.close()
+        recommendations_file = recommendations_dir / f"{detection_result_id}_recommendations.json"
+        with open(recommendations_file, "w") as f:
+            json.dump(recommendations_data, f, indent=2)
+        
         return True, f"{len(recommendations)} recommendations saved"
     except Exception as e:
-        session.rollback()
-        session.close()
         return False, str(e)
 
-
-def get_recommendations(detection_result_id):
+def get_recommendations(detection_result_id, username):
     """Get recommendations for a detection result."""
-    session = Session()
     try:
-        recs = session.query(Recommendation).filter(
-            Recommendation.detection_result_id == detection_result_id
-        ).order_by(Recommendation.priority).all()
+        recommendations_dir = RESULTS_DIR / username / "recommendations"
+        recommendations_file = recommendations_dir / f"{detection_result_id}_recommendations.json"
         
-        result = []
-        for rec in recs:
-            result.append({
-                "id": rec.id,
-                "category": rec.category,
-                "priority": rec.priority,
-                "title": rec.title,
-                "description": rec.description,
-                "potential_savings": rec.potential_savings,
-                "implementation_difficulty": rec.implementation_difficulty,
-                "created_at": rec.created_at
-            })
+        if not recommendations_file.exists():
+            return []
         
-        session.close()
-        return result
+        with open(recommendations_file, "r") as f:
+            recommendations_data = json.load(f)
+        
+        return recommendations_data["recommendations"]
     except Exception as e:
-        session.close()
         st.error(f"Database error: {str(e)}")
         return []
