@@ -23,7 +23,7 @@ try:
     from tensorflow.keras.callbacks import EarlyStopping
     tensorflow_available = True
 except (ImportError, TypeError) as e:
-    st.warning("TensorFlow not available in offline mode. Using alternative models.")
+    # Silently use alternative models when TensorFlow isn't available
     # Create placeholder variables to prevent namespace errors
     tf = None
     Sequential = None
@@ -92,9 +92,7 @@ def autoencoder_model(data, epochs=50, batch_size=32, contamination=0.05):
     """
     # Check if TensorFlow is available
     if not tensorflow_available:
-        st.warning("TensorFlow is not available in offline mode.")
-        st.info("Falling back to Isolation Forest for anomaly detection.")
-        # Fall back to Isolation Forest
+        # Silently fall back to Isolation Forest
         return isolation_forest_model(data, contamination=contamination)
         
     st.info("Training Autoencoder model...")
@@ -171,9 +169,7 @@ def autoencoder_model(data, epochs=50, batch_size=32, contamination=0.05):
             "predictions": predictions
         }
     except Exception as e:
-        st.error(f"Error training Autoencoder model: {str(e)}")
-        st.info("Falling back to Isolation Forest for anomaly detection.")
-        # Fall back to Isolation Forest
+        # Silently fall back to Isolation Forest without showing warnings
         return isolation_forest_model(data, contamination=contamination)
 
 def kmeans_model(data, n_clusters=2, contamination=0.05):

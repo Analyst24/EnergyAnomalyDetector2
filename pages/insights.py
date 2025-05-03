@@ -136,7 +136,7 @@ def show_insights():
     
     # Calculate average metrics across models
     avg_metrics = {}
-    for metric in ['accuracy', 'precision', 'recall']:
+    for metric in ['accuracy', 'precision', 'recall', 'f1_score', 'auc']:
         values = []
         for model, results in model_results.items():
             if 'metrics' in results and metric in results['metrics']:
@@ -147,7 +147,7 @@ def show_insights():
     
     # Find best model for each metric
     best_models = {}
-    for metric in ['accuracy', 'precision', 'recall']:
+    for metric in ['accuracy', 'precision', 'recall', 'f1_score', 'auc']:
         best_score = -1
         best_model = None
         
