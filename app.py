@@ -10,11 +10,6 @@ from pathlib import Path
 # Set global offline mode to ensure no external connectivity is attempted
 os.environ["OFFLINE_MODE"] = "1"
 
-# Check if we're being run directly or through main.py
-if os.environ.get('LAUNCHED_FROM_MAIN') != 'true':
-    # Display helpful message at the top of the page
-    message_container = st.empty()  # We'll fill this after imports
-
 # Import modules
 from auth import authenticate, create_user_accounts_file, get_user_settings
 from utils import get_icon, footer
@@ -56,20 +51,6 @@ if "settings" not in st.session_state:
 
 # Ensure user accounts directory exists
 create_user_accounts_file()
-
-# Show warning if we're not running through main.py
-if os.environ.get('LAUNCHED_FROM_MAIN') != 'true' and 'message_container' in locals():
-    message_container.warning("""
-    ### ⚠️ Running in standalone mode
-    
-    For the best experience with all features enabled, it's recommended to run the app using:
-    
-    ```
-    python main.py
-    ```
-    
-    This will start both the Streamlit dashboard and the Flask API server together.
-    """)
 
 # App starts here
 if not st.session_state.authenticated:

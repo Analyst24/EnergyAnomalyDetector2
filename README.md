@@ -16,43 +16,33 @@ This system detects unusual patterns in energy consumption data, helping busines
 - **Visual Analytics**: Advanced visualizations including time-series analysis, distribution plots, and more
 - **Flexible Deployment**: Choose between Streamlit-only mode or Flask+Streamlit integration
 
-## Running the System
+## Deployment Options
 
-The recommended way to run the Energy Anomaly Detection System is through the main entry point:
+The system can be deployed in several ways to suit different needs:
 
-```bash
-python main.py
-```
+### Option 1: Streamlit Only (Default)
 
-This single command will:
-- Start the Streamlit dashboard on port 5000
-- Start the Flask API server on port 5001
-- Open your browser automatically to the dashboard
-- Monitor both services and ensure they're running correctly
-
-Simply click the "Run" button in VS Code or execute `python main.py` in your terminal to start the entire system with one command.
-
-### Alternative Deployment Options
-
-While using `main.py` is recommended, these alternative methods are available for specific scenarios:
-
-#### Streamlit Only
-
-If you only need the Streamlit dashboard without the Flask API:
+Run the Streamlit app directly:
 
 ```bash
 streamlit run app.py
 ```
 
-#### Development Flask Server
+### Option 2: Flask + Streamlit Integration (Recommended for Production)
 
-For API development without the integrated approach:
+This option uses Flask as the main entry point and manages the Streamlit process:
 
 ```bash
-python app_flask.py
+python run.py
 ```
 
-#### Production Deployment
+Or for more control:
+
+```bash
+python run.py --flask-port 5001 --streamlit-port 5000
+```
+
+### Option 3: Full Production Deployment
 
 For production environments, use the deployment script with Gunicorn:
 

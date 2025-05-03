@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
-# Get port configurations from environment or use defaults
-streamlit_port = int(os.environ.get('STREAMLIT_PORT', 5000))
-flask_port = int(os.environ.get('FLASK_PORT', 5001))
+# Default ports
+streamlit_port = 5000
+flask_port = 5001
 
 # Global variable to hold the Streamlit process
 streamlit_process = None

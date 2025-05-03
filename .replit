@@ -18,15 +18,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Energy Anomaly System"
+args = "Streamlit App"
 
 [[workflows.workflow]]
-name = "Energy Anomaly System"
+name = "Streamlit App"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python main.py"
+args = "streamlit run app.py"
 waitForPort = 5000
 
 [[ports]]
