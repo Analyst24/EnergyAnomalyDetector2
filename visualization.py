@@ -1,17 +1,25 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime, timedelta
-import base64
-from io import BytesIO
 import os
 
 # Enforce offline mode
 os.environ['PLOTLY_OFFLINE'] = 'True'
+os.environ['OFFLINE_MODE'] = '1'
+os.environ['BROWSER_GATHER_USAGE_STATS'] = '0'
+
+# Initialize plotly in offline mode
+import plotly.io as pio
+pio.templates.default = "plotly_dark"
+
+import plotly.express as px
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+plt.switch_backend('Agg')  # Use non-interactive backend
+import seaborn as sns
+from datetime import datetime, timedelta
+import base64
+from io import BytesIO
 
 def display_energy_animation():
     """Display an energy-themed animation on the login page."""

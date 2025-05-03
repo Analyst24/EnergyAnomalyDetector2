@@ -26,7 +26,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "streamlit run app.py --server.port 5000"
+args = "BROWSER_GATHER_USAGE_STATS=0 streamlit run app.py --server.port 5000 --server.headless true --server.enableCORS false --server.enableXsrfProtection false --browser.gatherUsageStats false"
 waitForPort = 5000
 
 [[ports]]
