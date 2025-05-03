@@ -1,6 +1,7 @@
 import streamlit as st
 import json
-from utils import load_user_settings, save_user_settings
+import pandas as pd
+from auth import get_user_settings, save_user_settings
 
 def show_settings():
     """Display the settings page of the application."""

@@ -8,11 +8,10 @@ import time
 from pathlib import Path
 
 # Import modules
-from auth import authenticate, initialize_auth
+from auth import authenticate, create_user_accounts_file, get_user_settings
 from utils import get_icon, footer
 import visualization as viz
 from data_processing import load_data, preprocess_data
-import database
 
 # Set page config
 st.set_page_config(
@@ -46,19 +45,9 @@ if "settings" not in st.session_state:
         "selected_algorithms": ["isolation_forest", "autoencoder", "kmeans"],
         "theme": "dark"
     }
-if "db_connected" not in st.session_state:
-    st.session_state.db_connected = False
 
-# Initialize database and authentication
-try:
-    # Initialize database tables and create default admin user
-    initialize_auth()
-    st.session_state.db_connected = True
-    st.success("Database connected successfully")
-except Exception as e:
-    st.error(f"Database initialization error: {str(e)}")
-    st.session_state.db_connected = False
-    st.warning("Using file-based authentication as fallback")
+# Ensure user accounts directory exists
+create_user_accounts_file()
 
 # App starts here
 if not st.session_state.authenticated:
@@ -82,6 +71,12 @@ if not st.session_state.authenticated:
                 if authenticate(username, password):
                     st.session_state.authenticated = True
                     st.session_state.username = username
+                    
+                    # Load user settings
+                    user_settings = get_user_settings(username)
+                    if user_settings:
+                        st.session_state.settings = user_settings
+                    
                     st.session_state.current_page = "home"
                     st.rerun()
                 else:
@@ -99,39 +94,31 @@ if not st.session_state.authenticated:
                 elif new_password != confirm_password:
                     st.error("Passwords do not match")
                 else:
-                    # Try to create user in database first
-                    if st.session_state.db_connected:
-                        success, message = database.create_user(new_username, new_password, email)
-                        if success:
-                            st.success("Account created successfully! Please login.")
-                        else:
-                            st.error(f"Failed to create account: {message}")
+                    # File-based user storage
+                    user_dir = Path("user_accounts")
+                    user_dir.mkdir(exist_ok=True)
+                    
+                    user_file = user_dir / "users.json"
+                    
+                    if user_file.exists():
+                        with open(user_file, "r") as f:
+                            users = json.load(f)
                     else:
-                        # Fall back to file-based storage
-                        user_dir = Path("user_accounts")
-                        user_dir.mkdir(exist_ok=True)
+                        users = {}
+                    
+                    if new_username in users:
+                        st.error("Username already exists")
+                    else:
+                        users[new_username] = {
+                            "password": new_password,
+                            "email": email,
+                            "created_at": str(datetime.now())
+                        }
                         
-                        user_file = user_dir / "users.json"
+                        with open(user_file, "w") as f:
+                            json.dump(users, f)
                         
-                        if user_file.exists():
-                            with open(user_file, "r") as f:
-                                users = json.load(f)
-                        else:
-                            users = {}
-                        
-                        if new_username in users:
-                            st.error("Username already exists")
-                        else:
-                            users[new_username] = {
-                                "password": new_password,
-                                "email": email,
-                                "created_at": str(datetime.now())
-                            }
-                            
-                            with open(user_file, "w") as f:
-                                json.dump(users, f)
-                            
-                            st.success("Account created successfully! Please login.")
+                        st.success("Account created successfully! Please login.")
     
     # Display footer
     footer()
