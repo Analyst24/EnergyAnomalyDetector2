@@ -223,7 +223,7 @@ def create_gauge_chart(value, title, color):
         margin=dict(l=10, r=10, t=50, b=10)
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=f"gauge_chart_{title.lower().replace(' ', '_')}")
 
 def show_isolation_forest_insights(results):
     """

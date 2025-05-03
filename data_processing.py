@@ -344,7 +344,10 @@ def generate_sample_data():
     # Add occasional anomalies (about 5% of the data)
     n_anomalies = int(0.05 * n_points)
     anomaly_idx = np.random.choice(n_points, n_anomalies, replace=False)
-    consumption[anomaly_idx] += np.random.uniform(5, 15, size=n_anomalies)
+    # Convert to numpy array first, modify, then convert back
+    consumption_array = consumption.to_numpy()
+    consumption_array[anomaly_idx] += np.random.uniform(5, 15, size=n_anomalies)
+    consumption = pd.Series(consumption_array)
     
     # Create meter IDs (3 different meters)
     meter_ids = np.random.choice(['M001', 'M002', 'M003'], size=n_points)
