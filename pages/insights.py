@@ -32,6 +32,86 @@ def show_insights():
     st.markdown("### Model Performance Comparison")
     viz.plot_model_comparison(model_results)
     
+    # Add tabular view of model comparisons
+    st.markdown("### Algorithm Performance Metrics Comparison")
+    
+    # Create comparison table
+    comparison_data = []
+    metrics_columns = ["Algorithm", "Accuracy", "Precision", "Recall", "F1 Score", "AUC", 
+                      "Training Time (sec)", "Anomalies Count", "Anomalies %"]
+    
+    for model_name, results in model_results.items():
+        if 'metrics' in results:
+            metrics = results['metrics']
+            
+            # Format model name for display
+            display_name = model_name.replace('_', ' ').title()
+            
+            # Get metrics with formatting
+            accuracy = f"{metrics.get('accuracy', 0):.4f}"
+            precision = f"{metrics.get('precision', 0):.4f}"
+            recall = f"{metrics.get('recall', 0):.4f}"
+            f1_score = f"{metrics.get('f1_score', 0):.4f}"
+            auc = f"{metrics.get('auc', 0):.4f}"
+            
+            # Get other interesting statistics
+            training_time = f"{metrics.get('training_time', 0):.3f}"
+            anomalies_count = len(results.get('anomalies', []))
+            anomalies_percentage = f"{metrics.get('anomaly_ratio', 0)*100:.2f}%"
+            
+            # Add row to comparison data
+            comparison_data.append([
+                display_name, accuracy, precision, recall, f1_score, auc, 
+                training_time, anomalies_count, anomalies_percentage
+            ])
+    
+    # Create DataFrame and display as table
+    if comparison_data:
+        comparison_df = pd.DataFrame(comparison_data, columns=metrics_columns)
+        
+        # Style the table
+        st.dataframe(comparison_df, use_container_width=True, height=len(comparison_data)*60 + 40)
+        
+        # Add download button for the comparison table
+        csv = comparison_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            "Download Comparison CSV",
+            csv,
+            "algorithm_comparison.csv",
+            "text/csv",
+            key="download-comparison-csv"
+        )
+        
+        # Add insights about model comparison
+        st.markdown("#### Interpretation of Model Comparison")
+        
+        # Determine best models for each metric
+        best_models = {}
+        if len(comparison_data) > 1:  # Only compare if we have multiple models
+            for i, metric in enumerate(metrics_columns[1:6]):  # Only compare numerical metrics
+                try:
+                    # Find the best value (highest is best for all these metrics)
+                    values = [float(row[i+1]) for row in comparison_data]
+                    best_value = max(values)
+                    best_index = values.index(best_value)
+                    best_models[metric] = comparison_data[best_index][0]
+                except (ValueError, IndexError):
+                    continue
+            
+            # Display interpretation
+            if best_models:
+                st.markdown("Based on the comparison, here are the strengths of each algorithm:")
+                for metric, model in best_models.items():
+                    st.markdown(f"- **{model}** performs best in terms of **{metric}**")
+                
+                # Add general recommendation
+                st.markdown("\n**Recommendation:** Choose the algorithm based on your specific needs:")
+                st.markdown("- If minimizing false positives is crucial, prioritize **Precision**")
+                st.markdown("- If detecting all anomalies is essential, focus on **Recall**")
+                st.markdown("- For a balanced approach, consider **F1 Score** as it combines precision and recall")
+    else:
+        st.info("No comparative metrics available.")
+    
     # Create tabs for each model
     model_tabs = st.tabs([model_name.replace('_', ' ').title() for model_name in model_results.keys()])
     

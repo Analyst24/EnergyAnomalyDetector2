@@ -170,7 +170,7 @@ def show_results():
                             )
     
     # Original tabs now used for visualization details
-    tab1, tab2 = st.tabs(["Anomaly Analysis", "Model Comparison"])
+    tab1, tab2, tab3 = st.tabs(["Anomaly Analysis", "Model Comparison", "Export Results"])
     
     with tab1:
         st.markdown("#### Anomaly Patterns")
