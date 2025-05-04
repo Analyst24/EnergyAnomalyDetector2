@@ -37,12 +37,140 @@ def show_results():
     # Create dashboard summary
     viz.create_dashboard_summary(data, anomalies)
     
-    # Main results visualization
-    st.markdown("### Anomaly Distribution")
-    viz.plot_anomaly_distribution(data, anomalies)
+    # Add tab-based navigation for different views of results
+    results_tabs = st.tabs(["📋 Key Metrics", "📊 Visualizations", "📥 Export Options"])
     
-    # Create tabs for different views
-    tab1, tab2, tab3 = st.tabs(["Anomaly Analysis", "Model Comparison", "Export Results"])
+    with results_tabs[0]:
+        # Key metrics table in tabular format
+        viz.create_key_metrics_table(data, anomalies)
+    
+    with results_tabs[1]:
+        # Main results visualization
+        st.markdown("### Anomaly Distribution")
+        viz.plot_anomaly_distribution(data, anomalies)
+    
+    # Add content for Export Options tab
+    with results_tabs[2]:
+        st.markdown("### Export Options")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### Export Data")
+            
+            # CSV export
+            if st.button("Export to CSV", key="export_csv_tab"):
+                # Create CSV file
+                csv_data = save_results(data, anomalies)
+                
+                # Generate download link
+                st.markdown(
+                    get_download_link(csv_data, "anomaly_results.csv", "Download CSV"),
+                    unsafe_allow_html=True
+                )
+            
+            # Add option to export metrics as CSV
+            metrics_btn = st.button("Export Metrics as CSV", key="export_metrics_csv")
+            if metrics_btn:
+                # Create metrics dictionary
+                metrics = {}
+                
+                # Basic metrics
+                metrics["Total Data Points"] = len(data)
+                metrics["Total Anomalies"] = len(anomalies)
+                metrics["Anomaly Percentage"] = f"{(len(anomalies) / len(data) * 100):.2f}%"
+                
+                if 'consumption' in data.columns:
+                    metrics["Average Consumption"] = f"{data['consumption'].mean():.2f}"
+                    
+                    if len(anomalies) > 0:
+                        anomaly_data = data.iloc[anomalies]
+                        normal_data = data.drop(index=anomalies)
+                        
+                        metrics["Average Anomaly Consumption"] = f"{anomaly_data['consumption'].mean():.2f}"
+                        metrics["Average Normal Consumption"] = f"{normal_data['consumption'].mean():.2f}"
+                
+                # Create a DataFrame from the metrics dictionary
+                metrics_df = pd.DataFrame(list(metrics.items()), columns=["Metric", "Value"])
+                
+                # Generate CSV
+                csv = metrics_df.to_csv(index=False).encode('utf-8')
+                
+                # Create download link
+                st.markdown(
+                    get_download_link(io.BytesIO(csv), "energy_metrics.csv", "Download Metrics CSV"),
+                    unsafe_allow_html=True
+                )
+        
+        with col2:
+            st.markdown("#### Generate Report")
+            
+            # PDF report option
+            if st.button("Generate PDF Report", key="generate_pdf_tab"):
+                with st.spinner("Generating PDF report..."):
+                    # Create PDF report
+                    pdf_data = create_pdf_report(data, anomalies, model_results)
+                    
+                    # Generate download link
+                    st.markdown(
+                        get_download_link(pdf_data, "anomaly_detection_report.pdf", "Download PDF Report"),
+                        unsafe_allow_html=True
+                    )
+            
+            # Export charts as images
+            if st.button("Export Charts as Images", key="export_images_tab"):
+                # Create plots for export
+                with st.spinner("Generating chart images..."):
+                    # Anomaly distribution
+                    fig1 = px.scatter(
+                        data, 
+                        x=data.index if 'timestamp' not in data.columns else data['timestamp'],
+                        y='consumption' if 'consumption' in data.columns else data.iloc[:, 0],
+                        title="Anomaly Distribution",
+                        labels={"x": "Time", "y": "Consumption"}
+                    )
+                    
+                    # Add anomaly points
+                    if len(anomalies) > 0:
+                        anomaly_data = data.iloc[anomalies]
+                        fig1.add_scatter(
+                            x=anomaly_data.index if 'timestamp' not in anomaly_data.columns else anomaly_data['timestamp'],
+                            y=anomaly_data['consumption'] if 'consumption' in anomaly_data.columns else anomaly_data.iloc[:, 0],
+                            mode='markers',
+                            marker=dict(color='red', size=10, symbol='x'),
+                            name='Anomalies'
+                        )
+                    
+                    img1 = save_plot_as_image(fig1)
+                    st.markdown(
+                        get_download_link(img1, "anomaly_distribution.png", "Download Anomaly Distribution Chart"),
+                        unsafe_allow_html=True
+                    )
+                    
+                    # If there are anomalies, create more charts
+                    if len(anomalies) > 0:
+                        # Time analysis
+                        if 'timestamp' in data.columns:
+                            anomaly_data = data.iloc[anomalies].copy()
+                            anomaly_data['hour'] = pd.to_datetime(anomaly_data['timestamp']).dt.hour
+                            
+                            hour_counts = anomaly_data['hour'].value_counts().sort_index()
+                            
+                            fig2 = px.bar(
+                                x=hour_counts.index, 
+                                y=hour_counts.values,
+                                title="Anomalies by Hour of Day",
+                                labels={"x": "Hour of Day", "y": "Number of Anomalies"}
+                            )
+                            
+                            img2 = save_plot_as_image(fig2)
+                            st.markdown(
+                                get_download_link(img2, "anomalies_by_hour.png", "Download Time Analysis Chart"),
+                                unsafe_allow_html=True
+                            )
+    
+    # Original tabs now used for visualization details
+    tab1, tab2 = st.tabs(["Anomaly Analysis", "Model Comparison"])
     
     with tab1:
         st.markdown("#### Anomaly Patterns")

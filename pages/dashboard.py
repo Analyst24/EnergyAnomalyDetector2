@@ -36,10 +36,14 @@ def display_dashboard_with_data(data, anomalies=None):
     viz.create_dashboard_summary(data, anomalies if anomalies is not None else [])
     
     # Add tab-based navigation for different dashboard views
-    dashboard_tabs = st.tabs(["📊 Metrics", "🌍 Energy Impact", "📈 Analysis"])
+    dashboard_tabs = st.tabs(["📋 Data Table", "📊 Metrics", "🌍 Energy Impact", "📈 Analysis"])
     
     with dashboard_tabs[0]:
-        # Main metrics section in the first tab
+        # Key metrics table in tabular format - first tab
+        viz.create_key_metrics_table(data, anomalies)
+    
+    with dashboard_tabs[1]:
+        # Main metrics section in the second tab
         st.markdown("### Energy Consumption Metrics")
         
         # Consumption overview chart
@@ -72,12 +76,12 @@ def display_dashboard_with_data(data, anomalies=None):
             
             st.plotly_chart(fig, use_container_width=True)
     
-    with dashboard_tabs[1]:
-        # Emoji-based energy impact visualization in the second tab
+    with dashboard_tabs[2]:
+        # Emoji-based energy impact visualization in the third tab
         viz.create_emoji_energy_impact(data, anomalies if anomalies is not None else [])
     
-    with dashboard_tabs[2]:
-        # Detailed analysis charts in the third tab
+    with dashboard_tabs[3]:
+        # Detailed analysis charts in the fourth tab
         st.markdown("### Energy Consumption Analysis")
         
         # If anomalies have been detected, show anomaly distribution

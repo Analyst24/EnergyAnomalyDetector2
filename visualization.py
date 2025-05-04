@@ -563,6 +563,150 @@ def plot_recommendations(data, anomalies):
         # Display gauge chart
         st.plotly_chart(fig3, use_container_width=True)
 
+def create_key_metrics_table(data, anomalies=None):
+    """
+    Create a table of key performance metrics for easy scanning and export.
+    
+    Args:
+        data: DataFrame with consumption data
+        anomalies: Indices of anomalies detected (optional)
+    """
+    st.markdown("## 📊 Key Performance Metrics")
+    
+    # Check if data is available
+    if data is None or len(data) == 0:
+        st.warning("No data available for metrics calculation.")
+        return
+    
+    # Initialize metrics dictionary
+    metrics = {}
+    
+    # Calculate basic consumption metrics
+    if 'consumption' in data.columns:
+        # Calculate general statistics
+        metrics["Total Data Points"] = len(data)
+        metrics["Total Consumption"] = f"{data['consumption'].sum():.2f} units"
+        metrics["Average Consumption"] = f"{data['consumption'].mean():.2f} units"
+        metrics["Minimum Consumption"] = f"{data['consumption'].min():.2f} units"
+        metrics["Maximum Consumption"] = f"{data['consumption'].max():.2f} units"
+        metrics["Standard Deviation"] = f"{data['consumption'].std():.2f} units"
+        
+        # Calculate coefficient of variation (CV)
+        cv = data['consumption'].std() / data['consumption'].mean() if data['consumption'].mean() > 0 else 0
+        metrics["Coefficient of Variation"] = f"{cv:.4f}"
+        
+        # Percentiles for distribution understanding
+        metrics["25th Percentile"] = f"{data['consumption'].quantile(0.25):.2f} units"
+        metrics["Median (50th Percentile)"] = f"{data['consumption'].quantile(0.5):.2f} units"
+        metrics["75th Percentile"] = f"{data['consumption'].quantile(0.75):.2f} units"
+        metrics["90th Percentile"] = f"{data['consumption'].quantile(0.9):.2f} units"
+        
+        # Calculate anomaly-related metrics if anomalies are provided
+        if anomalies is not None and len(anomalies) > 0:
+            anomaly_data = data.iloc[anomalies]
+            normal_data = data.drop(index=anomalies)
+            
+            metrics["Total Anomalies"] = len(anomalies)
+            metrics["Anomaly Percentage"] = f"{(len(anomalies) / len(data) * 100):.2f}%"
+            
+            if not anomaly_data.empty:
+                metrics["Average Anomaly Consumption"] = f"{anomaly_data['consumption'].mean():.2f} units"
+                metrics["Max Anomaly Consumption"] = f"{anomaly_data['consumption'].max():.2f} units"
+                
+                # Calculate anomaly deviation
+                if not normal_data.empty:
+                    normal_avg = normal_data['consumption'].mean()
+                    anomaly_avg = anomaly_data['consumption'].mean()
+                    if normal_avg > 0:
+                        deviation = ((anomaly_avg / normal_avg) - 1) * 100
+                        metrics["Anomaly Deviation"] = f"{deviation:.2f}%"
+                        
+                        # Estimate potential savings
+                        excess = anomaly_avg - normal_avg
+                        if excess > 0:
+                            potential_savings = excess * len(anomalies)
+                            savings_pct = (potential_savings / data['consumption'].sum()) * 100
+                            metrics["Potential Savings"] = f"{potential_savings:.2f} units ({savings_pct:.2f}%)"
+    
+    # Time-based metrics if timestamp is available
+    if 'timestamp' in data.columns:
+        # Ensure timestamp is datetime
+        if not pd.api.types.is_datetime64_any_dtype(data['timestamp']):
+            data['timestamp'] = pd.to_datetime(data['timestamp'])
+        
+        date_range = data['timestamp'].max() - data['timestamp'].min()
+        days_span = date_range.days + (date_range.seconds / 86400)
+        metrics["Date Range"] = f"{days_span:.1f} days"
+        metrics["Start Date"] = data['timestamp'].min().strftime('%Y-%m-%d %H:%M')
+        metrics["End Date"] = data['timestamp'].max().strftime('%Y-%m-%d %H:%M')
+        
+        # Time density
+        if days_span > 0:
+            readings_per_day = len(data) / days_span
+            metrics["Readings Per Day"] = f"{readings_per_day:.2f}"
+        
+        # Calculate time period distribution for anomalies
+        if anomalies is not None and len(anomalies) > 0:
+            anomaly_data = data.iloc[anomalies].copy()
+            
+            # Hour of day analysis
+            if len(anomaly_data) > 0:
+                anomaly_data['hour'] = anomaly_data['timestamp'].dt.hour
+                peak_hours = anomaly_data['hour'].value_counts().nlargest(3).index.tolist()
+                peak_hours_str = ', '.join([f"{h:02d}:00" for h in peak_hours])
+                metrics["Peak Anomaly Hours"] = peak_hours_str
+                
+                # Day of week analysis
+                anomaly_data['day'] = anomaly_data['timestamp'].dt.day_name()
+                peak_day = anomaly_data['day'].value_counts().idxmax()
+                metrics["Peak Anomaly Day"] = peak_day
+    
+    # Location-based metrics if available
+    if 'location' in data.columns:
+        # Count unique locations
+        unique_locations = data['location'].nunique()
+        metrics["Unique Locations"] = unique_locations
+        
+        # Find highest consumption location
+        location_consumption = data.groupby('location')['consumption'].mean()
+        highest_location = location_consumption.idxmax()
+        highest_value = location_consumption.max()
+        metrics["Highest Consumption Location"] = f"{highest_location} ({highest_value:.2f} units)"
+        
+        # If anomalies are available, check location distribution
+        if anomalies is not None and len(anomalies) > 0:
+            anomaly_data = data.iloc[anomalies]
+            if 'location' in anomaly_data.columns and len(anomaly_data) > 0:
+                anomaly_locations = anomaly_data['location'].value_counts()
+                top_anomaly_location = anomaly_locations.idxmax()
+                top_anomaly_pct = (anomaly_locations[top_anomaly_location] / len(anomaly_data)) * 100
+                metrics["Top Anomaly Location"] = f"{top_anomaly_location} ({top_anomaly_pct:.2f}%)"
+    
+    # Environmental metrics if temperature is available
+    if 'temperature' in data.columns:
+        metrics["Average Temperature"] = f"{data['temperature'].mean():.2f}°"
+        
+        # Calculate correlation between temperature and consumption
+        if 'consumption' in data.columns:
+            temp_corr = data['temperature'].corr(data['consumption'])
+            metrics["Temperature-Consumption Correlation"] = f"{temp_corr:.4f}"
+    
+    # Create a DataFrame from the metrics dictionary
+    metrics_df = pd.DataFrame(list(metrics.items()), columns=["Metric", "Value"])
+    
+    # Display as an interactive table with download option
+    st.dataframe(metrics_df, use_container_width=True)
+    
+    # Add download button
+    csv = metrics_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        "Download Metrics CSV",
+        csv,
+        "energy_metrics.csv",
+        "text/csv",
+        key="download-metrics-csv"
+    )
+
 def create_emoji_energy_impact(data, anomalies=None, baseline=None):
     """
     Create an emoji-based visualization of energy impact and efficiency levels.
