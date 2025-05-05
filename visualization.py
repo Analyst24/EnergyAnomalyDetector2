@@ -444,6 +444,7 @@ def plot_model_comparison(results):
 def plot_recommendations(data, anomalies):
     """
     Create visualizations for recommendations based on anomaly analysis.
+    Simplified for clarity.
     
     Args:
         data: DataFrame with consumption and other columns
@@ -464,17 +465,59 @@ def plot_recommendations(data, anomalies):
     
     # Get anomaly data
     anomaly_data = plot_data[plot_data['is_anomaly'] == 1]
+    normal_data = plot_data[plot_data['is_anomaly'] == 0]
     
-    # Create consumption distribution
-    fig1 = px.histogram(
-        plot_data,
-        x='consumption',
-        color='is_anomaly',
-        marginal='box',
-        title='Consumption Distribution with Anomalies',
-        labels={'consumption': 'Energy Consumption', 'is_anomaly': 'Anomaly'},
-        color_discrete_map={0: 'blue', 1: 'red'},
-        category_orders={'is_anomaly': [0, 1]}
+    # Calculate basic statistics
+    normal_avg = normal_data['consumption'].mean()
+    anomaly_avg = anomaly_data['consumption'].mean()
+    percent_difference = ((anomaly_avg / normal_avg) - 1) * 100 if normal_avg > 0 else 0
+    
+    # Display simple metrics
+    st.markdown("### Potential Savings")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.metric(
+            "Normal vs. Anomaly Consumption", 
+            f"{normal_avg:.2f} vs {anomaly_avg:.2f}",
+            delta=f"{percent_difference:.1f}%" if percent_difference > 0 else f"{percent_difference:.1f}%",
+            delta_color="inverse"
+        )
+    
+    with col2:
+        # Calculate potential savings
+        if anomaly_avg > normal_avg:
+            excess_per_point = anomaly_avg - normal_avg
+            total_excess = excess_per_point * len(anomalies)
+            savings_percent = (total_excess / plot_data['consumption'].sum()) * 100
+            st.metric(
+                "Potential Energy Savings", 
+                f"{total_excess:.2f} units",
+                delta=f"{savings_percent:.1f}% of total",
+                delta_color="normal"
+            )
+        else:
+            st.metric(
+                "Potential Energy Savings", 
+                "0.00 units",
+                delta="0.0%",
+                delta_color="off"
+            )
+    
+    # Simple bar chart comparing normal vs anomaly consumption
+    comparison_data = pd.DataFrame({
+        'Category': ['Normal', 'Anomaly'],
+        'Average Consumption': [normal_avg, anomaly_avg]
+    })
+    
+    fig1 = px.bar(
+        comparison_data,
+        x='Category',
+        y='Average Consumption',
+        color='Category',
+        title='Normal vs Anomaly Consumption Comparison',
+        color_discrete_map={'Normal': 'green', 'Anomaly': 'red'}
     )
     
     # Update layout for dark theme
@@ -484,8 +527,7 @@ def plot_recommendations(data, anomalies):
         plot_bgcolor='rgba(20,20,20,0.8)',
         font=dict(color='white'),
         height=400,
-        margin=dict(l=10, r=10, t=50, b=10),
-        legend=dict(title='', orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
+        margin=dict(l=10, r=10, t=50, b=10)
     )
     
     # Create feature correlation if possible
@@ -525,42 +567,35 @@ def plot_recommendations(data, anomalies):
     if has_temp_feature:
         st.plotly_chart(fig2, use_container_width=True)
     
-    # Calculate potential savings
-    normal_mean = plot_data[plot_data['is_anomaly'] == 0]['consumption'].mean()
-    anomaly_mean = anomaly_data['consumption'].mean()
-    
-    if anomaly_mean > normal_mean:
-        excess = anomaly_mean - normal_mean
-        percentage = (excess / anomaly_mean) * 100
+    # Instead of gauge chart, show a simple pie chart for normal vs anomalous data
+    if len(anomalies) > 0:
+        # Create pie chart data for normal vs anomaly points
+        pie_data = pd.DataFrame({
+            'Category': ['Normal Data', 'Anomalous Data'],
+            'Count': [len(data) - len(anomalies), len(anomalies)]
+        })
         
-        # Create a gauge chart for potential savings
-        fig3 = go.Figure(go.Indicator(
-            mode="gauge+number+delta",
-            value=percentage,
-            domain={'x': [0, 1], 'y': [0, 1]},
-            title={'text': "Potential Energy Savings (%)"},
-            gauge={
-                'axis': {'range': [0, 100]},
-                'bar': {'color': "green"},
-                'steps': [
-                    {'range': [0, 30], 'color': "lightgreen"},
-                    {'range': [30, 70], 'color': "yellow"},
-                    {'range': [70, 100], 'color': "orange"}
-                ]
-            }
-        ))
+        # Create simple pie chart
+        fig3 = px.pie(
+            pie_data, 
+            values='Count', 
+            names='Category',
+            title='Distribution of Normal vs Anomalous Data Points',
+            color='Category',
+            color_discrete_map={'Normal Data': 'green', 'Anomalous Data': 'red'}
+        )
         
         # Update layout for dark theme
         fig3.update_layout(
             template='plotly_dark',
             paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(20,20,20,0.8)',
+            plot_bgcolor='rgba(0,0,0,0)',
             font=dict(color='white'),
-            height=300,
+            height=350,
             margin=dict(l=10, r=10, t=50, b=10)
         )
         
-        # Display gauge chart
+        # Display pie chart
         st.plotly_chart(fig3, use_container_width=True)
 
 def create_key_metrics_table(data, anomalies=None):

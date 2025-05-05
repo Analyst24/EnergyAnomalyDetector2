@@ -128,17 +128,24 @@ def show_insights():
                     st.info("Confusion matrix not available.")
             
             with col2:
-                # Show performance metrics
+                # Show simple metrics in table format
                 st.markdown("#### Key Performance Metrics")
                 if 'metrics' in results:
                     metrics = results['metrics']
                     
-                    # Create gauge charts for key metrics
-                    create_gauge_chart(metrics.get('accuracy', 0), "Accuracy", "blue", f"{model_name}_accuracy")
-                    create_gauge_chart(metrics.get('precision', 0), "Precision", "green", f"{model_name}_precision")
-                    create_gauge_chart(metrics.get('recall', 0), "Recall", "purple", f"{model_name}_recall")
-                    create_gauge_chart(metrics.get('f1_score', 0), "F1 Score", "orange", f"{model_name}_f1_score")
-                    create_gauge_chart(metrics.get('auc', 0), "AUC", "red", f"{model_name}_auc")
+                    # Create simple table of metrics
+                    metrics_data = {
+                        "Metric": ["Accuracy", "Precision", "Recall", "F1 Score", "AUC"],
+                        "Value": [
+                            f"{metrics.get('accuracy', 0):.4f}",
+                            f"{metrics.get('precision', 0):.4f}",
+                            f"{metrics.get('recall', 0):.4f}",
+                            f"{metrics.get('f1_score', 0):.4f}",
+                            f"{metrics.get('auc', 0):.4f}"
+                        ]
+                    }
+                    metrics_df = pd.DataFrame(metrics_data)
+                    st.dataframe(metrics_df, use_container_width=True)
             
             # Show model specific visualizations
             st.markdown("#### Model-Specific Analysis")
