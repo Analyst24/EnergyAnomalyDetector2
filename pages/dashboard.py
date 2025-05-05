@@ -36,14 +36,10 @@ def display_dashboard_with_data(data, anomalies=None):
     viz.create_dashboard_summary(data, anomalies if anomalies is not None else [])
     
     # Add tab-based navigation for different dashboard views
-    dashboard_tabs = st.tabs(["📋 Data Table", "📊 Metrics", "🌍 Energy Impact", "📈 Analysis"])
+    dashboard_tabs = st.tabs(["📊 Metrics", "📈 Analysis"])
     
     with dashboard_tabs[0]:
-        # Key metrics table in tabular format - first tab
-        viz.create_key_metrics_table(data, anomalies)
-    
-    with dashboard_tabs[1]:
-        # Main metrics section in the second tab
+        # Main metrics section in the first tab
         st.markdown("### Energy Consumption Metrics")
         
         # Consumption overview chart
@@ -76,13 +72,56 @@ def display_dashboard_with_data(data, anomalies=None):
             
             st.plotly_chart(fig, use_container_width=True)
     
-    with dashboard_tabs[2]:
-        # Emoji-based energy impact visualization in the third tab
-        viz.create_emoji_energy_impact(data, anomalies if anomalies is not None else [])
-    
-    with dashboard_tabs[3]:
-        # Detailed analysis charts in the fourth tab
+    with dashboard_tabs[1]:
+        # Detailed analysis charts in the second tab
         st.markdown("### Energy Consumption Analysis")
+        
+        # Add pie chart showing normal vs anomaly data
+        if anomalies is not None and len(anomalies) > 0:
+            st.markdown("### Normal vs Anomaly Distribution")
+            
+            # Calculate counts for pie chart
+            anomaly_count = len(anomalies)
+            normal_count = len(data) - anomaly_count
+            
+            # Create pie chart data
+            pie_data = pd.DataFrame({
+                'Category': ['Normal', 'Anomaly'],
+                'Count': [normal_count, anomaly_count]
+            })
+            
+            # Create pie chart
+            fig = px.pie(
+                pie_data, 
+                values='Count', 
+                names='Category',
+                title='Distribution of Normal vs Anomaly Data Points',
+                color='Category',
+                color_discrete_map={'Normal': 'green', 'Anomaly': 'red'},
+                hole=0.4
+            )
+            
+            # Update layout for dark theme
+            fig.update_layout(
+                template='plotly_dark',
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(20,20,20,0.8)',
+                font=dict(color='white'),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+                height=400,
+                margin=dict(l=10, r=10, t=50, b=10)
+            )
+            
+            # Add percentage annotations
+            fig.update_traces(
+                textposition='inside', 
+                textinfo='percent+label',
+                marker=dict(line=dict(color='#000000', width=2))
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Show anomaly distribution
         
         # If anomalies have been detected, show anomaly distribution
         if anomalies is not None and len(anomalies) > 0:
