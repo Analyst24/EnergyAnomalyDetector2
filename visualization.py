@@ -505,13 +505,42 @@ def plot_recommendations(data, anomalies):
                 delta_color="off"
             )
     
+    # Create a pie chart for data distribution
+    pie_data = pd.DataFrame({
+        'Category': ['Normal Data', 'Anomalous Data'],
+        'Count': [len(data) - len(anomalies), len(anomalies)]
+    })
+    
+    # Create simple pie chart
+    fig1 = px.pie(
+        pie_data, 
+        values='Count', 
+        names='Category',
+        title='Distribution of Normal vs Anomalous Data Points',
+        color='Category',
+        color_discrete_map={'Normal Data': 'green', 'Anomalous Data': 'red'}
+    )
+    
+    # Update layout for dark theme
+    fig1.update_layout(
+        template='plotly_dark',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white'),
+        height=350,
+        margin=dict(l=10, r=10, t=50, b=10)
+    )
+    
+    # Display pie chart
+    st.plotly_chart(fig1, use_container_width=True)
+    
     # Simple bar chart comparing normal vs anomaly consumption
     comparison_data = pd.DataFrame({
         'Category': ['Normal', 'Anomaly'],
         'Average Consumption': [normal_avg, anomaly_avg]
     })
     
-    fig1 = px.bar(
+    fig2 = px.bar(
         comparison_data,
         x='Category',
         y='Average Consumption',
@@ -521,7 +550,7 @@ def plot_recommendations(data, anomalies):
     )
     
     # Update layout for dark theme
-    fig1.update_layout(
+    fig2.update_layout(
         template='plotly_dark',
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(20,20,20,0.8)',
@@ -530,14 +559,13 @@ def plot_recommendations(data, anomalies):
         margin=dict(l=10, r=10, t=50, b=10)
     )
     
+    # Display bar chart
+    st.plotly_chart(fig2, use_container_width=True)
+    
     # Create feature correlation if possible
     if 'temperature' in data.columns:
-        # Calculate savings potential
-        # Assuming high consumption at comfortable temperatures is inefficient
-        has_temp_feature = True
-        
         # Create scatter plot
-        fig2 = px.scatter(
+        fig3 = px.scatter(
             plot_data,
             x='temperature',
             y='consumption',
@@ -549,7 +577,7 @@ def plot_recommendations(data, anomalies):
         )
         
         # Update layout for dark theme
-        fig2.update_layout(
+        fig3.update_layout(
             template='plotly_dark',
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(20,20,20,0.8)',
@@ -558,44 +586,8 @@ def plot_recommendations(data, anomalies):
             margin=dict(l=10, r=10, t=50, b=10),
             legend=dict(title='', orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
         )
-    else:
-        has_temp_feature = False
-    
-    # Display figures
-    st.plotly_chart(fig1, use_container_width=True)
-    
-    if has_temp_feature:
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # Instead of gauge chart, show a simple pie chart for normal vs anomalous data
-    if len(anomalies) > 0:
-        # Create pie chart data for normal vs anomaly points
-        pie_data = pd.DataFrame({
-            'Category': ['Normal Data', 'Anomalous Data'],
-            'Count': [len(data) - len(anomalies), len(anomalies)]
-        })
         
-        # Create simple pie chart
-        fig3 = px.pie(
-            pie_data, 
-            values='Count', 
-            names='Category',
-            title='Distribution of Normal vs Anomalous Data Points',
-            color='Category',
-            color_discrete_map={'Normal Data': 'green', 'Anomalous Data': 'red'}
-        )
-        
-        # Update layout for dark theme
-        fig3.update_layout(
-            template='plotly_dark',
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='white'),
-            height=350,
-            margin=dict(l=10, r=10, t=50, b=10)
-        )
-        
-        # Display pie chart
+        # Display scatter plot
         st.plotly_chart(fig3, use_container_width=True)
 
 def create_key_metrics_table(data, anomalies=None):
