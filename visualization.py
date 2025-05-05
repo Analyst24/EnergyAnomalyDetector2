@@ -16,36 +16,51 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 def display_energy_animation():
-    """Display an energy-themed animation on the login page."""
+    """Display an energy-themed animation on the login page with original colors and visual style."""
     # Create a placeholder for the animation
     animation_placeholder = st.empty()
     
     # Define key frames for the animation
     frames = 30
     
-    # Display animation - simplified for performance
+    # Original color palette
+    energy_color = '#4CAF50'  # Original green color
+    particle_color_scale = 'Viridis'  # Original color scale
+    bg_color = 'rgba(0,0,0,0)'  # Transparent background
+    
+    # Display animation - with original visuals
     for i in range(frames):
         progress = i / frames
         
         # Create a simple energy wave visualization
         fig = go.Figure()
         
-        # Generate wave data
+        # Generate wave data with original pattern
         x = np.linspace(0, 10, 100)
         y = np.sin(x + progress * 2 * np.pi) * np.exp(-0.1 * x)
         
-        # Add the main wave
+        # Add the main wave with original color and styling
         fig.add_trace(go.Scatter(
             x=x, 
             y=y, 
             mode='lines',
-            line=dict(color='#00FF00', width=3),
+            line=dict(color=energy_color, width=3),
             name='Energy'
         ))
         
-        # Add some "energy particles"
-        particles_x = np.random.uniform(0, 10, 15)
-        particles_y = np.random.uniform(-1, 1, 15)
+        # Add a second wave for visual effect (part of original design)
+        y2 = 0.5 * np.sin(x + progress * 4 * np.pi + 1) * np.exp(-0.05 * x)
+        fig.add_trace(go.Scatter(
+            x=x, 
+            y=y2, 
+            mode='lines',
+            line=dict(color='rgba(76, 175, 80, 0.4)', width=2),
+            name='Energy Harmonic'
+        ))
+        
+        # Add the original "energy particles" effect
+        particles_x = np.random.uniform(0, 10, 20)
+        particles_y = np.random.uniform(-1, 1, 20)
         
         fig.add_trace(go.Scatter(
             x=particles_x,
@@ -53,18 +68,18 @@ def display_energy_animation():
             mode='markers',
             marker=dict(
                 size=8,
-                color=np.random.uniform(0, 1, 15),
-                colorscale='Viridis',
+                color=np.random.uniform(0, 1, 20),
+                colorscale=particle_color_scale,
                 opacity=0.8
             ),
             name='Particles'
         ))
         
-        # Set layout with dark theme
+        # Set layout with original styling
         fig.update_layout(
             template='plotly_dark',
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor=bg_color,
+            plot_bgcolor=bg_color,
             xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             showlegend=False,

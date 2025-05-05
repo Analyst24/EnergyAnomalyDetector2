@@ -42,12 +42,19 @@ def get_icon(name):
     return icon_map.get(name, icon_map.get("settings"))
 
 def footer():
-    """Display footer on every page."""
+    """Display footer on every page with original styling."""
     st.markdown("---")
-    st.markdown(
-        "© 2025 Opulent Chikwiramakomo. All rights reserved.", 
-        unsafe_allow_html=True
-    )
+    
+    # Footer with original color scheme
+    footer_html = """
+    <div style="text-align: center; padding: 10px; margin-top: 30px;">
+        <p style="color: #4CAF50; font-size: 14px; margin-bottom: 5px;">⚡ Energy Anomaly Detection System</p>
+        <p style="color: #90CAF9; font-size: 12px; margin-bottom: 5px;">Offline analysis powered by advanced ML algorithms</p>
+        <p style="color: #aaaaaa; font-size: 10px;">© 2025 Opulent Chikwiramakomo. All rights reserved.</p>
+    </div>
+    """
+    
+    st.markdown(footer_html, unsafe_allow_html=True)
 
 def create_pdf_report(data, anomalies, model_results):
     """

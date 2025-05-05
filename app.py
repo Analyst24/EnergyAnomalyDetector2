@@ -58,19 +58,25 @@ if not st.session_state.authenticated:
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.markdown("<h1 style='text-align: center;'>Energy Anomaly Detection System</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: #4CAF50;'>Energy Anomaly Detection System</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #90CAF9;'>Identify energy consumption anomalies with advanced AI</p>", unsafe_allow_html=True)
         
-        # Animation/visualization for the login page
+        # Animation/visualization for the login page with original styling
         viz.display_energy_animation()
         
-        # Login/Sign-up tabs
+        # Login/Sign-up tabs with original styling
         tab1, tab2 = st.tabs(["Login", "Sign Up"])
         
         with tab1:
             username = st.text_input("Username", key="login_username")
             password = st.text_input("Password", type="password", key="login_password")
             
-            if st.button("Login", key="login_button"):
+            # Custom button styling with original color scheme
+            login_btn = st.button("Login", key="login_button", 
+                                 help="Click to log in to your account", 
+                                 type="primary")
+            
+            if login_btn:
                 if authenticate(username, password):
                     st.session_state.authenticated = True
                     st.session_state.username = username
@@ -91,7 +97,12 @@ if not st.session_state.authenticated:
             new_password = st.text_input("Password", type="password", key="signup_password")
             confirm_password = st.text_input("Confirm Password", type="password", key="signup_confirm")
             
-            if st.button("Sign Up", key="signup_button"):
+            # Custom button styling with original color scheme
+            signup_btn = st.button("Sign Up", key="signup_button", 
+                                 help="Create a new account", 
+                                 type="primary")
+            
+            if signup_btn:
                 if not new_username or not email or not new_password:
                     st.error("All fields are required")
                 elif new_password != confirm_password:
